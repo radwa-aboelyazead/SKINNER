@@ -15,7 +15,7 @@ import {
   Mail,
   MapPin,
   MessageCircle,
-  MoreHorizontal,
+
   Paperclip,
   RefreshCcw,
   Send,
@@ -25,6 +25,7 @@ import {
 import { adaptDoctor, adaptMessage, extractId, toArray } from "@/services/apiAdapters";
 import EmptyState from "@/components/ui/EmptyState";
 import { appointmentApi, chatApi, doctorsApi, getLatestAnalysisId, getLatestChatId, paymentApi, saveLatestAppointmentId, saveLatestChatId, unwrapData } from "@/services/skinnerApi";
+import { useTranslation } from "@/context/LanguageContext";
 import {
   cleanText,
   digitsOnly,
@@ -34,6 +35,29 @@ import {
   validateMessage,
   validatePaymentForm,
 } from "@/lib/formValidation";
+
+function getSpecialtyLabel(spec, t) {
+  if (!spec) return "";
+  const normalized = spec.toLowerCase().replace(/[\s_-]+/g, "_");
+  const key = `specialty_${normalized}`;
+  const translated = t(key);
+  return translated !== key ? translated : spec;
+}
+
+function getExperienceLabel(doctor, t) {
+  if (doctor?.experienceYears !== null && doctor?.experienceYears !== undefined) {
+    return t("years_experience").replace("{n}", doctor.experienceYears);
+  }
+  return doctor?.experience || "";
+}
+
+function getAddressLabel(address, t) {
+  if (!address) return "";
+  const normalized = address.toLowerCase().replace(/[\s,_-]+/g, "_");
+  const key = `address_${normalized}`;
+  const translated = t(key);
+  return translated !== key ? translated : address;
+}
 
 function DoctorAvatar({ initials, className = "" }) {
   return (
@@ -46,10 +70,11 @@ function DoctorAvatar({ initials, className = "" }) {
 }
 
 function VerifiedBadge() {
+  const { t } = useTranslation();
   return (
     <span className="inline-flex items-center gap-1 rounded-full border border-green-300 bg-green-50 px-2 py-0.5 text-[10px] text-green-700">
       <CheckCircle2 className="size-3" />
-      Verified
+      {t("verified")}
     </span>
   );
 }
@@ -64,21 +89,44 @@ function DoctorMeta({ icon: Icon, children }) {
 }
 
 function DoctorTags({ tags }) {
+  const { t } = useTranslation();
   return (
     <div className="mt-3 flex flex-wrap gap-2">
-      {tags.map((tag) => (
-        <span
-          key={tag}
-          className="rounded-md bg-gray-100 px-2 py-1 text-[10px] text-gray-700"
-        >
-          {tag}
-        </span>
-      ))}
+      {tags.map((tag) => {
+        // Try specialty key first
+        let normalized = tag.toLowerCase().replace(/[\s_-]+/g, "_");
+        let key = `specialty_${normalized}`;
+        let translated = t(key);
+        if (translated !== key) {
+          return (
+            <span
+              key={tag}
+              className="rounded-md bg-gray-100 px-2 py-1 text-[10px] text-gray-700"
+            >
+              {translated}
+            </span>
+          );
+        }
+        // Try address key next
+        normalized = tag.toLowerCase().replace(/[\s,_-]+/g, "_");
+        key = `address_${normalized}`;
+        translated = t(key);
+        const displayTag = translated !== key ? translated : tag;
+        return (
+          <span
+            key={tag}
+            className="rounded-md bg-gray-100 px-2 py-1 text-[10px] text-gray-700"
+          >
+            {displayTag}
+          </span>
+        );
+      })}
     </div>
   );
 }
 
 function RecommendationCard({ doctor, onBook, onMap }) {
+  const { t } = useTranslation();
   return (
     <article className="grid gap-4 rounded-lg border border-gray-200 bg-white p-5 md:grid-cols-[1fr_138px]">
       <button
@@ -94,29 +142,29 @@ function RecommendationCard({ doctor, onBook, onMap }) {
             </h3>
             <VerifiedBadge />
           </div>
-          <p className="mt-0.5 text-[12px] text-gray-600">{doctor.specialty}</p>
+          <p className="mt-0.5 text-[12px] text-gray-600">{getSpecialtyLabel(doctor.specialty, t)}</p>
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
             <DoctorMeta icon={Star}>
               <span className="text-amber-500">{doctor.rating}</span> ({doctor.reviews})
             </DoctorMeta>
-            <DoctorMeta icon={Award}>{doctor.experience}</DoctorMeta>
-            <DoctorMeta icon={MapPin}>{doctor.clinic}</DoctorMeta>
-            <DoctorMeta icon={Clock}>{doctor.availability}</DoctorMeta>
+            <DoctorMeta icon={Award}>{getExperienceLabel(doctor, t)}</DoctorMeta>
+            <DoctorMeta icon={MapPin}>{getAddressLabel(doctor.clinic, t)}</DoctorMeta>
+            <DoctorMeta icon={Clock}>{doctor.availability || t("hours_not_available")}</DoctorMeta>
           </div>
           <DoctorTags tags={doctor.tags} />
         </div>
       </button>
 
       <div className="border-gray-200 md:border-l md:pl-5">
-        <p className="text-[12px] text-gray-500">Consultation Fee</p>
-        <p className="mt-1 text-[14px] font-medium text-blue-600">{doctor.fee}</p>
+        <p className="text-[12px] text-gray-500">{t("consultation_fee")}</p>
+        <p className="mt-1 text-[14px] font-medium text-blue-600">{t("currency_format").replace("{val}", parseFee(doctor.fee))}</p>
         <button
           type="button"
           onClick={onBook}
           className="mt-4 inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-[#050316] px-4 text-[12px] font-medium text-white transition hover:bg-[#111026]"
         >
           <Calendar className="size-3.5" />
-          Book Appointment
+          {t("book_appointment")}
         </button>
       </div>
     </article>
@@ -124,22 +172,23 @@ function RecommendationCard({ doctor, onBook, onMap }) {
 }
 
 function RecommendationList({ onBook, onMap, doctorList = [], loading, error }) {
+  const { t } = useTranslation();
   return (
     <section className="mx-auto max-w-[640px] rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-4">
         <h2 className="text-[15px] font-medium text-slate-900">
-          Available Specialists
+          {t("available_specialists")}
         </h2>
         <p className="mt-1 text-[13px] text-gray-500">
-          Browse verified doctors registered on the platform and book an appointment.
+          {t("browse_verified_doctors")}
         </p>
       </div>
-      {loading && <p className="mb-3 rounded-md bg-blue-50 px-3 py-2 text-[12px] text-blue-700">Loading doctors from API...</p>}
+      {loading && <p className="mb-3 rounded-md bg-blue-50 px-3 py-2 text-[12px] text-blue-700">{t("loading_doctors_api")}</p>}
       {error && <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-700">{error}</p>}
       {doctorList.length === 0 && !loading && !error ? (
         <EmptyState
-          title="No specialists available"
-          message="We could not find any doctors for your request right now. Please check back later."
+          title={t("no_specialists_available")}
+          message={t("no_specialists_desc")}
         />
       ) : (
         <div className="space-y-4">
@@ -158,13 +207,14 @@ function RecommendationList({ onBook, onMap, doctorList = [], loading, error }) 
 }
 
 function GoogleMapEmbed({ address, doctorName }) {
+  const { t } = useTranslation();
   const query = encodeURIComponent(address || "Dermatology Clinic");
   if (!address) {
     return (
       <div className="relative flex h-[330px] items-center justify-center overflow-hidden rounded-md bg-gray-100">
         <div className="text-center">
           <MapPin className="mx-auto size-8 text-gray-300" />
-          <p className="mt-2 text-[12px] text-gray-400">No address available</p>
+          <p className="mt-2 text-[12px] text-gray-400">{t("no_address_available")}</p>
         </div>
       </div>
     );
@@ -185,34 +235,35 @@ function GoogleMapEmbed({ address, doctorName }) {
   );
 }
 
-function DoctorMapView({ onBack, onBook, doctorList = [], currentDoctor }) {
+function DoctorMapView({ onBack, onBook, doctorList = [], currentDoctor, onSelect }) {
+  const { t } = useTranslation();
   if (!currentDoctor) {
     return (
       <section className="mx-auto max-w-[900px]">
-        <button type="button" onClick={onBack} className="mb-4 inline-flex items-center gap-2 text-[12px] text-slate-900"><ArrowLeft className="size-3.5" />Back</button>
-        <EmptyState title="No doctor selected" message="Select a doctor from the recommendations before viewing the map." />
+        <button type="button" onClick={onBack} className="mb-4 inline-flex items-center gap-2 text-[12px] text-slate-900"><ArrowLeft className="size-3.5" />{t("back")}</button>
+        <EmptyState title={t("no_doctor_selected")} message={t("select_doctor_first")} />
       </section>
     );
   }
-  const doctorName = currentDoctor?.name || "Dermatology Specialist";
-  const clinicLocation = currentDoctor?.clinic || "Location details unavailable";
-  const doctorAvailability = currentDoctor?.availability || "Hours not available";
+  const doctorName = currentDoctor?.name || t("dermatologist");
+  const clinicLocation = currentDoctor?.clinic || t("no_address_available");
+  const doctorAvailability = currentDoctor?.availability || t("hours_not_available");
   return (
     <section className="mx-auto max-w-[900px]">
       <button type="button" onClick={onBack} className="mb-4 inline-flex items-center gap-2 text-[12px] text-slate-900">
         <ArrowLeft className="size-3.5" />
-        Back to Doctors
+        {t("back_to_doctors")}
       </button>
       <div className="grid gap-5 lg:grid-cols-[1fr_1.45fr]">
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-[15px] font-medium text-slate-900">Recommended Specialists</h2>
+          <h2 className="mb-4 text-[15px] font-medium text-slate-900">{t("recommended_specialists")}</h2>
           <div className="space-y-3">
             {doctorList.map((doctor, index) => (
               <button
                 key={doctor.id}
                 type="button"
-                className={`w-full rounded-lg border p-4 text-left ${index === 0 ? "border-blue-100 bg-blue-50/70" : "border-gray-200 bg-white"}`}
-                onClick={() => onBook(doctor)}
+                className={`w-full rounded-lg border p-4 text-left ${doctor.id === currentDoctor?.id ? "border-blue-100 bg-blue-50/70" : "border-gray-200 bg-white"}`}
+                onClick={() => onSelect?.(doctor)}
               >
                 <div className="flex gap-4">
                   <DoctorAvatar initials={doctor.initials} />
@@ -221,12 +272,12 @@ function DoctorMapView({ onBack, onBook, doctorList = [], currentDoctor }) {
                       <h3 className="text-[13px] font-medium text-slate-900">{doctor.name}</h3>
                       <VerifiedBadge />
                     </div>
-                    <p className="text-[11px] text-gray-500">{doctor.specialty}</p>
+                    <p className="text-[11px] text-gray-500">{getSpecialtyLabel(doctor.specialty, t)}</p>
                     <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
                       <DoctorMeta icon={Star}>{doctor.rating} ({doctor.reviews})</DoctorMeta>
-                      <DoctorMeta icon={Award}>{doctor.experience}</DoctorMeta>
-                      <DoctorMeta icon={MapPin}>{doctor.clinic}</DoctorMeta>
-                      <DoctorMeta icon={Clock}>{doctor.availability}</DoctorMeta>
+                      <DoctorMeta icon={Award}>{getExperienceLabel(doctor, t)}</DoctorMeta>
+                      <DoctorMeta icon={MapPin}>{getAddressLabel(doctor.clinic, t)}</DoctorMeta>
+                      <DoctorMeta icon={Clock}>{doctor.availability || t("hours_not_available")}</DoctorMeta>
                     </div>
                     <DoctorTags tags={doctor.tags} />
                   </div>
@@ -238,24 +289,21 @@ function DoctorMapView({ onBack, onBook, doctorList = [], currentDoctor }) {
 
         <div>
           <GoogleMapEmbed address={clinicLocation} doctorName={doctorName} />
-          <div className="mt-3 flex gap-2">
-            <button className="flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-blue-600 text-[13px] font-medium text-white">
+          <div className="mt-3">
+            <button className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-blue-600 text-[13px] font-medium text-white">
               <Car className="size-4" />
               {doctorAvailability}
-            </button>
-            <button className="flex h-10 w-12 items-center justify-center rounded-md bg-gray-100 text-gray-500">
-              <MoreHorizontal className="size-5" />
             </button>
           </div>
           <div className="mt-5 grid gap-4 rounded-lg bg-white p-5 md:grid-cols-2">
             <div className="text-[12px]">
-              <p className="text-gray-500">Clinic</p>
-              <p className="mt-1 font-medium text-slate-900">{clinicLocation}</p>
-              <p className="mt-4 text-gray-500">Contact</p>
-              <p className="mt-1 text-blue-600">Not available</p>
+              <p className="text-gray-500">{t("clinic")}</p>
+              <p className="mt-1 font-medium text-slate-900">{getAddressLabel(clinicLocation, t)}</p>
+              <p className="mt-4 text-gray-500">{t("contact")}</p>
+              <p className="mt-1 text-blue-600">{currentDoctor?.phone || currentDoctor?.email || t("not_available")}</p>
             </div>
             <div className="text-[12px]">
-              <p className="text-gray-500">Doctor</p>
+              <p className="text-gray-500">{t("doctor")}</p>
               <p className="mt-1 leading-relaxed text-slate-900">{doctorName}</p>
             </div>
           </div>
@@ -269,7 +317,7 @@ function DoctorMapView({ onBack, onBook, doctorList = [], currentDoctor }) {
           className="inline-flex h-9 min-w-[150px] items-center justify-center gap-2 rounded-md bg-[#050316] px-5 text-[12px] font-medium text-white disabled:cursor-not-allowed disabled:bg-gray-300"
         >
           <Calendar className="size-3.5" />
-          Book Appointment
+          {t("book_appointment")}
         </button>
       </div>
     </section>
@@ -299,11 +347,12 @@ function adaptDateEntry(raw) {
   const d = new Date(dateStr + "T00:00:00");
   if (Number.isNaN(d.getTime())) return null;
   const dayIndex = d.getDay();
+  const monthIndex = d.getMonth();
   const dayOfMonth = String(d.getDate());
-  const monthShort = MONTH_NAMES[d.getMonth()];
+  const monthShort = MONTH_NAMES[monthIndex];
   const dayName = isToday(dateStr) ? "Today" : DAY_NAMES[dayIndex];
-  const label = `${FULL_DAY_NAMES[dayIndex]}, ${FULL_MONTH_NAMES[d.getMonth()]} ${dayOfMonth}, ${d.getFullYear()}`;
-  return { id: dateStr, day: dayName, date: dayOfMonth, month: monthShort, label };
+  const label = `${FULL_DAY_NAMES[dayIndex]}, ${FULL_MONTH_NAMES[monthIndex]} ${dayOfMonth}, ${d.getFullYear()}`;
+  return { id: dateStr, day: dayName, date: dayOfMonth, month: monthShort, label, dayIndex, monthIndex, isToday: isToday(dateStr), year: d.getFullYear() };
 }
 
 function adaptDatesResponse(response) {
@@ -327,7 +376,7 @@ function adaptSlotEntry(raw) {
     timeStr = raw.trim();
   } else if (typeof raw === "object") {
     timeStr = (raw.time || raw.slot || raw.start_time || raw.label || raw.value || "").trim();
-    if (raw.available === false || raw.is_available === false || raw.booked === true || raw.status === "booked" || raw.status === "unavailable") {
+    if (raw.available === false || raw.is_available === false || raw.booked === true || raw.status === "booked" || raw.status === "reserved" || raw.status === "unavailable") {
       available = false;
     }
   }
@@ -370,11 +419,17 @@ function splitSlots(slots) {
 }
 
 function DateCard({ item, selected, onSelect }) {
+  const { t } = useTranslation();
+  const dayIndex = DAY_NAMES.indexOf(item.day);
+  const translatedDay = item.day === "Today" ? t("today") : (dayIndex !== -1 ? t("day_" + dayIndex) : item.day);
+  const monthIndex = MONTH_NAMES.indexOf(item.month);
+  const translatedMonth = monthIndex !== -1 ? t("month_" + monthIndex) : item.month;
+
   return (
     <button type="button" onClick={() => onSelect(item)} aria-pressed={selected} className={`booking-date-card flex h-[58px] flex-col items-center justify-center rounded-md border text-center ${selected ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40 dark:border-blue-400" : "border-gray-200 bg-white hover:border-blue-200 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:border-blue-500"}`}>
-      <span className="text-[11px] text-gray-600 dark:text-zinc-400">{item.day}</span>
+      <span className="text-[11px] text-gray-600 dark:text-zinc-400">{translatedDay}</span>
       <span className="mt-1 text-[13px] font-medium text-slate-900 dark:text-white">{item.date}</span>
-      <span className="mt-1 text-[10px] text-gray-500 dark:text-zinc-500">{item.month}</span>
+      <span className="mt-1 text-[10px] text-gray-500 dark:text-zinc-500">{translatedMonth}</span>
     </button>
   );
 }
@@ -388,13 +443,14 @@ function TimeButton({ time, selected, disabled, onSelect }) {
 }
 
 function AppointmentBooking({ doctor, appointment, onBack, onProceed, onAppointmentChange, serverError, isSubmitting, dates, morningSlots, afternoonSlots, disabledSlots, loadingDates, loadingSlots, onDateSelect, availabilityError }) {
+  const { t } = useTranslation();
   const activeDoctor = doctor;
   const [error, setError] = useState("");
   if (!activeDoctor) {
     return (
       <section className="mx-auto max-w-[640px]">
-        <button type="button" onClick={onBack} className="mb-5 inline-flex items-center gap-2 text-[12px] text-slate-900"><ArrowLeft className="size-3.5" />Back to Doctors</button>
-        <EmptyState title="No doctor selected" message="Please choose a doctor before booking an appointment." />
+        <button type="button" onClick={onBack} className="mb-5 inline-flex items-center gap-2 text-[12px] text-slate-900"><ArrowLeft className="size-3.5" />{t("back_to_doctors")}</button>
+        <EmptyState title={t("no_doctor_selected")} message={t("select_doctor_first")} />
       </section>
     );
   }
@@ -408,7 +464,7 @@ function AppointmentBooking({ doctor, appointment, onBack, onProceed, onAppointm
 
   const proceed = () => {
     if (!selectedDate || !selectedTime) {
-      setError("Please select a valid date and time before proceeding to payment.");
+      setError(t("select_date_time_error"));
       return;
     }
     setError("");
@@ -417,24 +473,29 @@ function AppointmentBooking({ doctor, appointment, onBack, onProceed, onAppointm
   const selectDate = (date) => { setError(""); onDateSelect(date); };
   const selectTime = (time) => { setError(""); onAppointmentChange({ date: selectedDate, time }); };
 
+  const parsedDate = selectedDate ? new Date(selectedDate.id + "T00:00:00") : null;
+  const formattedDate = parsedDate && !isNaN(parsedDate.getTime())
+    ? `${t("full_day_" + parsedDate.getDay())}, ${t("month_" + parsedDate.getMonth())} ${selectedDate.date}, ${parsedDate.getFullYear()}`
+    : "–";
+
   return (
     <section className="mx-auto max-w-[640px]">
-      <button type="button" onClick={onBack} className="mb-5 inline-flex items-center gap-2 text-[12px] text-slate-900 dark:text-zinc-300"><ArrowLeft className="size-3.5" />Back to Doctors</button>
-      {availabilityError && <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 dark:border-amber-900/50! dark:bg-amber-950/20! px-3 py-2 text-[12px] text-amber-700 dark:text-amber-400!">{availabilityError}</p>}
+      <button type="button" onClick={onBack} className="mb-5 inline-flex items-center gap-2 text-[12px] text-slate-900 dark:text-zinc-300"><ArrowLeft className="size-3.5" />{t("back_to_doctors")}</button>
+      {availabilityError && <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 dark:border-amber-900/50! dark:bg-amber-950/20! px-3 py-2 text-[12px] text-amber-700 dark:text-amber-400!">{t(availabilityError)}</p>}
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-        <div className="flex items-center gap-4"><DoctorAvatar initials={activeDoctor.initials} className="size-10" /><div><div className="flex flex-wrap items-center gap-2"><h2 className="text-[14px] font-medium text-slate-900 dark:text-white">{activeDoctor.name}</h2><VerifiedBadge /></div><p className="text-[12px] text-gray-500 dark:text-zinc-400">{activeDoctor.specialty}</p></div></div>
-        <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 border-t border-gray-100 pt-3 dark:border-zinc-700"><DoctorMeta icon={MapPin}>{activeDoctor.clinic || activeDoctor.address || "Medical Center Downtown"}</DoctorMeta><DoctorMeta icon={DollarSign}>{activeDoctor.fee} consultation fee</DoctorMeta></div>
+        <div className="flex items-center gap-4"><DoctorAvatar initials={activeDoctor.initials} className="size-10" /><div><div className="flex flex-wrap items-center gap-2"><h2 className="text-[14px] font-medium text-slate-900 dark:text-white">{activeDoctor.name}</h2><VerifiedBadge /></div><p className="text-[12px] text-gray-500 dark:text-zinc-400">{getSpecialtyLabel(activeDoctor.specialty, t)}</p></div></div>
+        <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 border-t border-gray-100 pt-3 dark:border-zinc-700"><DoctorMeta icon={MapPin}>{getAddressLabel(activeDoctor.clinic || activeDoctor.address, t) || "Medical Center Downtown"}</DoctorMeta><DoctorMeta icon={DollarSign}>{t("currency_format").replace("{val}", parseFee(activeDoctor.fee))} {t("consultation_fee")}</DoctorMeta></div>
       </div>
       <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-        <div className="mb-4 flex items-start gap-2"><Calendar className="mt-0.5 size-4 dark:text-zinc-400" /><div><h3 className="text-[13px] font-medium text-slate-900 dark:text-white">Select Date</h3><p className="mt-1 text-[12px] text-gray-500 dark:text-zinc-400">Choose an available date for your appointment</p></div></div>
-        {loadingDates ? <div className="flex items-center justify-center py-6"><RefreshCcw className="size-5 animate-spin text-blue-500" /><span className="ml-2 text-[12px] text-gray-500 dark:text-zinc-400">Loading available dates...</span></div> : activeDates.length === 0 ? <p className="py-4 text-center text-[12px] text-gray-500 dark:text-zinc-400">No available dates for this doctor.</p> : <div className="grid grid-cols-3 gap-2 sm:grid-cols-7">{activeDates.map((date) => <DateCard key={date.id} item={date} selected={date.id === selectedDate?.id} onSelect={selectDate} />)}</div>}
+        <div className="mb-4 flex items-start gap-2"><Calendar className="mt-0.5 size-4 dark:text-zinc-400" /><div><h3 className="text-[13px] font-medium text-slate-900 dark:text-white">{t("select_date")}</h3><p className="mt-1 text-[12px] text-gray-500 dark:text-zinc-400">{t("choose_available_date")}</p></div></div>
+        {loadingDates ? <div className="flex items-center justify-center py-6"><RefreshCcw className="size-5 animate-spin text-blue-500" /><span className="ml-2 text-[12px] text-gray-500 dark:text-zinc-400">{t("loading_available_dates")}</span></div> : activeDates.length === 0 ? <p className="py-4 text-center text-[12px] text-gray-500 dark:text-zinc-400">{t("no_available_dates")}</p> : <div className="grid grid-cols-3 gap-2 sm:grid-cols-7">{activeDates.map((date) => <DateCard key={date.id} item={date} selected={date.id === selectedDate?.id} onSelect={selectDate} />)}</div>}
       </div>
       <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-        <div className="mb-4 flex items-start gap-2"><Clock className="mt-0.5 size-4 dark:text-zinc-400" /><div><h3 className="text-[13px] font-medium text-slate-900 dark:text-white">Select Time Slot</h3><p className="mt-1 text-[12px] text-gray-500 dark:text-zinc-400">Available time slots for {selectedDate?.day || "–"}, {selectedDate?.month || "–"} {selectedDate?.date || "–"}</p></div></div>
-        {loadingSlots ? <div className="flex items-center justify-center py-6"><RefreshCcw className="size-5 animate-spin text-blue-500" /><span className="ml-2 text-[12px] text-gray-500 dark:text-zinc-400">Loading available slots...</span></div> : noSlots ? <p className="py-4 text-center text-[12px] text-gray-500 dark:text-zinc-400">No available time slots for this date.</p> : <>{activeMorning.length > 0 && <><p className="mb-2 text-[11px] text-gray-600 dark:text-zinc-400">Morning</p><div className="grid grid-cols-2 gap-3 sm:grid-cols-6">{activeMorning.map((time) => <TimeButton key={time} time={time} selected={selectedTime === time} disabled={activeDisabled.has(time)} onSelect={selectTime} />)}</div></>}{activeAfternoon.length > 0 && <><p className="mb-2 mt-5 text-[11px] text-gray-600 dark:text-zinc-400">Afternoon</p><div className="grid grid-cols-2 gap-3 sm:grid-cols-6">{activeAfternoon.map((time) => <TimeButton key={time} time={time} selected={selectedTime === time} disabled={activeDisabled.has(time)} onSelect={selectTime} />)}</div></>}</>}
-        <div className="mt-5 flex flex-wrap gap-4 text-[10px] text-gray-600 dark:text-zinc-400"><span className="inline-flex items-center gap-1.5"><span className="size-3 rounded border border-blue-500 bg-blue-50 dark:bg-blue-950/40" /> Selected</span><span className="inline-flex items-center gap-1.5"><span className="size-3 rounded border border-gray-200 bg-white dark:border-zinc-600 dark:bg-zinc-800" /> Available</span><span className="inline-flex items-center gap-1.5"><span className="size-3 rounded border border-gray-100 bg-gray-50 dark:border-zinc-700 dark:bg-zinc-900" /> Unavailable</span></div>
+        <div className="mb-4 flex items-start gap-2"><Clock className="mt-0.5 size-4 dark:text-zinc-400" /><div><h3 className="text-[13px] font-medium text-slate-900 dark:text-white">{t("select_time_slot")}</h3><p className="mt-1 text-[12px] text-gray-500 dark:text-zinc-400">{t("available_slots_for")} {selectedDate ? `${selectedDate.day === "Today" ? t("today") : t("day_" + DAY_NAMES.indexOf(selectedDate.day))}, ${t("month_" + MONTH_NAMES.indexOf(selectedDate.month))} ${selectedDate.date}` : "–"}</p></div></div>
+        {loadingSlots ? <div className="flex items-center justify-center py-6"><RefreshCcw className="size-5 animate-spin text-blue-500" /><span className="ml-2 text-[12px] text-gray-500 dark:text-zinc-400">{t("loading_available_slots")}</span></div> : noSlots ? <p className="py-4 text-center text-[12px] text-gray-500 dark:text-zinc-400">{t("no_available_slots")}</p> : <>{activeMorning.length > 0 && <><p className="mb-2 text-[11px] text-gray-600 dark:text-zinc-400">{t("morning")}</p><div className="grid grid-cols-2 gap-3 sm:grid-cols-6">{activeMorning.map((time) => <TimeButton key={time} time={time} selected={selectedTime === time} disabled={activeDisabled.has(time)} onSelect={selectTime} />)}</div></>}{activeAfternoon.length > 0 && <><p className="mb-2 mt-5 text-[11px] text-gray-600 dark:text-zinc-400">{t("afternoon")}</p><div className="grid grid-cols-2 gap-3 sm:grid-cols-6">{activeAfternoon.map((time) => <TimeButton key={time} time={time} selected={selectedTime === time} disabled={activeDisabled.has(time)} onSelect={selectTime} />)}</div></>}</>}
+        <div className="mt-5 flex flex-wrap gap-4 text-[10px] text-gray-600 dark:text-zinc-400"><span className="inline-flex items-center gap-1.5"><span className="size-3 rounded border border-blue-500 bg-blue-50 dark:bg-blue-950/40" /> {t("selected")}</span><span className="inline-flex items-center gap-1.5"><span className="size-3 rounded border border-gray-200 bg-white dark:border-zinc-600 dark:bg-zinc-800" /> {t("available")}</span><span className="inline-flex items-center gap-1.5"><span className="size-3 rounded border border-gray-100 bg-gray-50 dark:border-zinc-700 dark:bg-zinc-900" /> {t("unavailable")}</span></div>
       </div>
-      <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-5 shadow-sm dark:border-blue-900/50 dark:bg-blue-950/20"><div className="flex flex-col items-start justify-between gap-4 sm:flex-row"><div><h3 className="text-[13px] font-semibold text-blue-800 dark:text-blue-300">Appointment Summary</h3><div className="mt-3 space-y-2 text-[12px] text-slate-800 dark:text-zinc-300"><p className="flex items-center gap-2"><Calendar className="size-3.5 text-blue-600 dark:text-blue-400" /> {selectedDate?.day || "–"}, {selectedDate?.month || "–"} {selectedDate?.date || "–"}</p><p className="flex items-center gap-2"><Clock className="size-3.5 text-blue-600 dark:text-blue-400" /> {selectedTime || "Not selected"}</p><p className="flex items-center gap-2"><MapPin className="size-3.5 text-blue-600 dark:text-blue-400" /> In-person at {activeDoctor.clinic || activeDoctor.address || "Clinic address not set"}</p><p className="font-semibold">{activeDoctor.fee} consultation fee</p></div>{error && <p className="mt-3 text-[11px] font-medium text-red-600 dark:text-red-500!">{error}</p>}{serverError && <p className="mt-3 text-[11px] font-medium text-red-600 dark:text-red-500!">{serverError}</p>}</div><button type="button" onClick={proceed} disabled={isSubmitting || !selectedTime} className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md bg-[#050316] px-4 text-[12px] font-medium text-white disabled:opacity-60">{isSubmitting ? "Booking..." : "Proceed to Payment"}<CheckCircle2 className="size-3.5" /></button></div><div className="mt-4 rounded-md border border-blue-200 bg-white p-3 text-[11px] leading-relaxed text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300">You will be redirected to a secure payment page to complete your booking. No charges will be made until you confirm the payment.</div></div>
+      <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-5 shadow-sm dark:border-blue-900/50 dark:bg-blue-950/20"><div className="flex flex-col items-start justify-between gap-4 sm:flex-row"><div><h3 className="text-[13px] font-semibold text-blue-800 dark:text-blue-300">{t("appointment_summary")}</h3><div className="mt-3 space-y-2 text-[12px] text-slate-800 dark:text-zinc-300"><p className="flex items-center gap-2"><Calendar className="size-3.5 text-blue-600 dark:text-blue-400" /> {formattedDate}</p><p className="flex items-center gap-2"><Clock className="size-3.5 text-blue-600 dark:text-blue-400" /> {selectedTime || "–"}</p><p className="flex items-center gap-2"><MapPin className="size-3.5 text-blue-600 dark:text-blue-400" /> {t("in_person_at")} {getAddressLabel(activeDoctor.clinic || activeDoctor.address, t) || "–"}</p><p className="font-semibold">{t("currency_format").replace("{val}", parseFee(activeDoctor.fee))} {t("consultation_fee")}</p></div>{error && <p className="mt-3 text-[11px] font-medium text-red-600 dark:text-red-500!">{t(error)}</p>}{serverError && <p className="mt-3 text-[11px] font-medium text-red-600 dark:text-red-500!">{t(serverError)}</p>}</div><button type="button" onClick={proceed} disabled={isSubmitting || !selectedTime} className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md bg-[#050316] px-4 text-[12px] font-medium text-white disabled:opacity-60">{isSubmitting ? t("booking_dots") : t("proceed_to_payment")}<CheckCircle2 className="size-3.5" /></button></div><div className="mt-4 rounded-md border border-blue-200 bg-white p-3 text-[11px] leading-relaxed text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300">{t("redirect_payment_notice")}</div></div>
     </section>
   );
 }
@@ -445,17 +506,30 @@ function parseFee(fee = "$150") {
 }
 
 function PaymentSummary({ doctor, appointment, total }) {
+  const { t } = useTranslation();
   const consultationFee = parseFee(doctor?.fee);
   const tax = Math.max(0, total - consultationFee);
+
+  const dateObj = appointment?.date;
+  let displayDate = "";
+  if (dateObj) {
+    const d = new Date(dateObj.id + "T00:00:00");
+    if (!isNaN(d.getTime())) {
+      displayDate = `${t("full_day_" + d.getDay())}, ${t("month_" + d.getMonth())} ${d.getDate()}, ${d.getFullYear()}`;
+    } else {
+      displayDate = dateObj.label;
+    }
+  }
+
   return (
     <aside className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm lg:sticky lg:top-5">
-      <h2 className="text-[15px] font-medium text-slate-900">Appointment Summary</h2>
-      <div className="mx-auto mt-4 flex h-6 max-w-[190px] items-center justify-center rounded-md border border-blue-300 bg-blue-50 text-[11px] font-semibold text-blue-700">Prices Include 20% Tax</div>
-      <div className="mt-4 border-b border-gray-200 pb-4"><p className="text-[12px] text-gray-500">Doctor</p><p className="mt-1 text-[15px] font-semibold text-slate-900">{doctor?.name || "Dr. Sarah Johnson"}</p></div>
-      <div className="space-y-4 border-b border-gray-200 py-4 text-[12px]"><div className="flex gap-2"><Calendar className="mt-0.5 size-4 text-gray-500" /><div><p className="text-gray-500">Date</p><p className="font-semibold text-slate-900">{appointment?.date?.label || "Saturday, February 7, 2026"}</p></div></div><div className="flex gap-2"><Clock className="mt-0.5 size-4 text-gray-500" /><div><p className="text-gray-500">Time</p><p className="font-semibold text-slate-900">{appointment?.time || "09:00 AM"}</p></div></div></div>
-      <div className="space-y-2 border-b border-gray-200 py-4 text-[12px]"><div className="flex justify-between"><span className="text-gray-500">Consultation Fee</span><span className="font-semibold text-slate-900">${consultationFee}</span></div><div className="flex justify-between"><span className="text-gray-500">Booking Fee</span><span className="font-semibold text-slate-900">$0</span></div><div className="flex justify-between"><span className="text-gray-500">Tax</span><span className="font-semibold text-slate-900">${tax}</span></div></div>
-      <div className="flex justify-between py-3 text-[15px] font-semibold"><span>Total</span><span className="text-blue-600">${total}</span></div>
-      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-[11px] leading-snug text-blue-800"><div className="mb-1 flex items-center gap-1.5 font-semibold"><Info className="size-3.5" /> Cancellation Policy:</div>Free cancellation up to 24 hours before appointment. 50% refund for cancellations within 24 hours.</div>
+      <h2 className="text-[15px] font-medium text-slate-900">{t("appointment_summary")}</h2>
+      <div className="mx-auto mt-4 flex h-6 max-w-[190px] items-center justify-center rounded-md border border-blue-300 bg-blue-50 text-[11px] font-semibold text-blue-700">{t("prices_include_tax")}</div>
+      <div className="mt-4 border-b border-gray-200 pb-4"><p className="text-[12px] text-gray-500">{t("doctor")}</p><p className="mt-1 text-[15px] font-semibold text-slate-900">{doctor?.name || "Dr. Sarah Johnson"}</p></div>
+      <div className="space-y-4 border-b border-gray-200 py-4 text-[12px]"><div className="flex gap-2"><Calendar className="mt-0.5 size-4 text-gray-500" /><div><p className="text-gray-500">{t("date")}</p><p className="font-semibold text-slate-900">{displayDate}</p></div></div><div className="flex gap-2"><Clock className="mt-0.5 size-4 text-gray-500" /><div><p className="text-gray-500">{t("time")}</p><p className="font-semibold text-slate-900">{appointment?.time || "09:00 AM"}</p></div></div></div>
+      <div className="space-y-2 border-b border-gray-200 py-4 text-[12px]"><div className="flex justify-between"><span className="text-gray-500">{t("consultation_fee")}</span><span className="font-semibold text-slate-900">{t("currency_format").replace("{val}", consultationFee)}</span></div><div className="flex justify-between"><span className="text-gray-500">{t("booking_fee")}</span><span className="font-semibold text-slate-900">{t("currency_format").replace("{val}", 0)}</span></div><div className="flex justify-between"><span className="text-gray-500">{t("tax")}</span><span className="font-semibold text-slate-900">{t("currency_format").replace("{val}", tax)}</span></div></div>
+      <div className="flex justify-between py-3 text-[15px] font-semibold"><span>{t("total")}</span><span className="text-blue-600">{t("currency_format").replace("{val}", total)}</span></div>
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-[11px] leading-snug text-blue-800"><div className="mb-1 flex items-center gap-1.5 font-semibold"><Info className="size-3.5" /> {t("cancellation_policy")}</div>{t("cancellation_policy_desc")}</div>
     </aside>
   );
 }
@@ -466,9 +540,11 @@ function FieldError({ message }) {
 }
 
 function CardInput({ name, label, value, error, right, onChange, inputMode = "text", maxLength }) {
+  const { t } = useTranslation();
+  const translatedLabel = t(label.toLowerCase().replace(/\s+/g, "_"));
   return (
     <label className="block">
-      <span className="mb-1.5 flex items-center gap-1.5 text-[12px] text-slate-700">{label === "Card Number" && <CreditCard className="size-3.5" />}{label === "Cardholder Name" && <span className="text-[13px]">♙</span>}{label}</span>
+      <span className="mb-1.5 flex items-center gap-1.5 text-[12px] text-slate-700">{label === "Card Number" && <CreditCard className="size-3.5" />}{label === "Cardholder Name" && <span className="text-[13px]">♙</span>}{translatedLabel}</span>
       <div className={`flex h-9 items-center justify-between rounded-md bg-gray-100 px-3 text-[12px] ${error ? "ring-1 ring-red-400" : "focus-within:ring-1 focus-within:ring-blue-400"}`}>
         <input name={name} value={value} onChange={onChange} inputMode={inputMode} maxLength={maxLength} autoComplete="off" className="min-w-0 flex-1 bg-transparent text-gray-700 outline-none placeholder:text-gray-400" />
         {right && <span className="ml-2 shrink-0 text-[10px] text-gray-500">{right}</span>}
@@ -479,6 +555,7 @@ function CardInput({ name, label, value, error, right, onChange, inputMode = "te
 }
 
 function PaymentCard({ onConfirm, otpSent = false, paymentData, onPaymentChange, amount = 150, isSubmitting = false }) {
+  const { t } = useTranslation();
   const [errors, setErrors] = useState({});
   const cardBrand = getCardBrand(paymentData.cardNumber);
   const handleChange = (field) => (event) => {
@@ -499,20 +576,21 @@ function PaymentCard({ onConfirm, otpSent = false, paymentData, onPaymentChange,
   };
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <div className="flex items-start gap-2"><Lock className="mt-0.5 size-4 text-green-600" /><div><h1 className="text-[16px] font-medium text-slate-900">Secure Payment</h1><p className="mt-1 text-[14px] text-gray-500">Your payment information is encrypted and secure</p></div></div>
-      <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4"><div className="flex gap-2"><Shield className="mt-0.5 size-4 text-green-700" /><p className="text-[12px] leading-relaxed text-green-800"><span className="font-semibold">PCI DSS Compliant:</span><br />All transactions are encrypted using industry-standard 256-bit SSL encryption. Your card details are never stored on our servers.</p></div></div>
-      <div className="mt-5 space-y-4"><CardInput name="cardNumber" label="Card Number" value={paymentData.cardNumber} onChange={handleChange("cardNumber")} error={errors.cardNumber} right={paymentData.cardNumber ? cardBrand : undefined} inputMode="numeric" maxLength={19} /><CardInput name="cardholderName" label="Cardholder Name" value={paymentData.cardholderName} onChange={handleChange("cardholderName")} error={errors.cardholderName} /><div className="grid grid-cols-2 gap-4"><CardInput name="expiryDate" label="Expiry Date" value={paymentData.expiryDate} onChange={handleChange("expiryDate")} error={errors.expiryDate} inputMode="numeric" maxLength={5} /><CardInput name="cvv" label="CVV" value={paymentData.cvv} onChange={handleChange("cvv")} error={errors.cvv} inputMode="numeric" maxLength={4} /></div><p className="pl-4 text-[12px] text-gray-500">Securely save this card for future appointments</p></div>
-      {otpSent ? <div className="mt-5 space-y-3"><div className="rounded-lg border border-green-200 bg-green-50 p-4 text-[12px] leading-relaxed text-green-800"><div className="font-semibold">OTP Sent!</div>A 6-digit verification code has been sent to the phone number linked to your credit card.</div><label className="block"><span className="mb-1.5 block text-[12px] font-medium text-slate-700">ENTER OTP Code</span><input className={`h-9 w-full rounded-md bg-gray-100 px-3 text-[13px] tracking-[0.35em] outline-none ${errors.otp ? "ring-1 ring-red-400" : "focus:ring-1 focus:ring-blue-400"}`} value={paymentData.otp} onChange={handleChange("otp")} inputMode="numeric" maxLength={6} placeholder="000000" /><FieldError message={errors.otp} /></label><div className="flex items-center justify-between text-[11px] text-gray-500"><span>Code expires in <span className="text-blue-600">1:29</span></span><button type="button" onClick={() => onPaymentChange({ ...paymentData, otp: "" })} className="text-blue-600">Resend OTP</button></div></div> : <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-[12px] leading-relaxed text-blue-800"><div className="font-semibold">Security Verification:</div>After clicking “Confirm Payment”, a One-Time Password (OTP) will be sent to the phone number linked to your credit card for security verification.</div>}
-      <button type="button" onClick={handleSubmit} disabled={isSubmitting} className="mt-8 flex h-9 w-full items-center justify-center gap-2 rounded-md bg-[#050316] text-[12px] font-medium text-white disabled:opacity-60"><Lock className="size-3.5" />{isSubmitting ? "Processing..." : otpSent ? "Final Payment Confirmation" : `Confirm Payment - $${amount}`}</button>
-      <p className="mx-auto mt-5 max-w-[420px] text-center text-[10px] leading-relaxed text-gray-500">By confirming this payment, you agree to our Terms of Service and Privacy Policy. Your payment is secured with 256-bit SSL encryption and OTP verification.</p>
+      <div className="flex items-start gap-2"><Lock className="mt-0.5 size-4 text-green-600" /><div><h1 className="text-[16px] font-medium text-slate-900">{t("secure_payment")}</h1><p className="mt-1 text-[14px] text-gray-500">{t("payment_encrypted_desc")}</p></div></div>
+      <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4"><div className="flex gap-2"><Shield className="mt-0.5 size-4 text-green-700" /><p className="text-[12px] leading-relaxed text-green-800"><span className="font-semibold">{t("pci_dss_compliant")}</span><br />{t("pci_dss_desc")}</p></div></div>
+      <div className="mt-5 space-y-4"><CardInput name="cardNumber" label="Card Number" value={paymentData.cardNumber} onChange={handleChange("cardNumber")} error={errors.cardNumber} right={paymentData.cardNumber ? cardBrand : undefined} inputMode="numeric" maxLength={19} /><CardInput name="cardholderName" label="Cardholder Name" value={paymentData.cardholderName} onChange={handleChange("cardholderName")} error={errors.cardholderName} /><div className="grid grid-cols-2 gap-4"><CardInput name="expiryDate" label="Expiry Date" value={paymentData.expiryDate} onChange={handleChange("expiryDate")} error={errors.expiryDate} inputMode="numeric" maxLength={5} /><CardInput name="cvv" label="CVV" value={paymentData.cvv} onChange={handleChange("cvv")} error={errors.cvv} inputMode="numeric" maxLength={4} /></div><p className="pl-4 text-[12px] text-gray-500">{t("save_card_future")}</p></div>
+      {otpSent ? <div className="mt-5 space-y-3"><div className="rounded-lg border border-green-200 bg-green-50 p-4 text-[12px] leading-relaxed text-green-800"><div className="font-semibold">{t("otp_sent")}</div>{t("otp_sent_desc")}</div><label className="block"><span className="mb-1.5 block text-[12px] font-medium text-slate-700">{t("enter_otp")}</span><input className={`h-9 w-full rounded-md bg-gray-100 px-3 text-[13px] tracking-[0.35em] outline-none ${errors.otp ? "ring-1 ring-red-400" : "focus:ring-1 focus:ring-blue-400"}`} value={paymentData.otp} onChange={handleChange("otp")} inputMode="numeric" maxLength={6} placeholder="000000" /><FieldError message={errors.otp} /></label><div className="flex items-center justify-between text-[11px] text-gray-500"><span>{t("code_expires")} <span className="text-blue-600">1:29</span></span><button type="button" onClick={() => onPaymentChange({ ...paymentData, otp: "" })} className="text-blue-600">{t("resend_otp")}</button></div></div> : <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-[12px] leading-relaxed text-blue-800"><div className="font-semibold">{t("security_verification_title")}</div>{t("security_verification_desc")}</div>}
+      <button type="button" onClick={handleSubmit} disabled={isSubmitting} className="mt-8 flex h-9 w-full items-center justify-center gap-2 rounded-md bg-[#050316] text-[12px] font-medium text-white disabled:opacity-60"><Lock className="size-3.5" />{isSubmitting ? t("processing") : otpSent ? t("final_payment_confirmation") : `${t("confirm_payment")} - ${t("currency_format").replace("{val}", amount)}`}</button>
+      <p className="mx-auto mt-5 max-w-[420px] text-center text-[10px] leading-relaxed text-gray-500">{t("payment_agreement_desc")}</p>
     </section>
   );
 }
 
 function PaymentMethods() {
+  const { t } = useTranslation();
   return (
     <div className="mt-4 flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4 text-[11px] text-gray-600 shadow-sm">
-      <span>We accept:</span>
+      <span>{t("we_accept")}</span>
       <div className="flex flex-wrap gap-2">
         {['VISA', 'MASTERCARD', 'AMEX', 'DISCOVER'].map((method) => (
           <span key={method} className="rounded bg-gray-100 px-3 py-1 font-bold text-slate-800">{method}</span>
@@ -523,110 +601,124 @@ function PaymentMethods() {
 }
 
 function PaymentScreen({ onBack, onConfirm, otpSent = false, doctor, appointment, paymentData, onPaymentChange, serverError, isSubmitting }) {
+  const { t } = useTranslation();
   const consultationFee = parseFee(doctor?.fee);
   const total = consultationFee + 50;
   return (
     <section className="mx-auto max-w-[950px]">
-      <button type="button" onClick={onBack} className="mb-6 inline-flex items-center gap-2 text-[12px] text-slate-900"><ArrowLeft className="size-3.5" />Back to Appointment Selection</button>
-      <div className="grid gap-12 lg:grid-cols-[minmax(0,520px)_260px] lg:items-start lg:justify-center"><div><PaymentCard onConfirm={onConfirm} otpSent={otpSent} paymentData={paymentData} onPaymentChange={onPaymentChange} amount={total} isSubmitting={isSubmitting} />{serverError && <p className="mt-3 rounded-md border border-red-200 bg-red-50 dark:border-red-900/50! dark:bg-red-950/20! px-3 py-2 text-[12px] text-red-700 dark:text-red-400!">{serverError}</p>}<PaymentMethods /></div><PaymentSummary doctor={doctor} appointment={appointment} total={total} /></div>
+      <button type="button" onClick={onBack} className="mb-6 inline-flex items-center gap-2 text-[12px] text-slate-900"><ArrowLeft className="size-3.5" />{t("back_appointment_selection")}</button>
+      <div className="grid gap-12 lg:grid-cols-[minmax(0,520px)_260px] lg:items-start lg:justify-center"><div><PaymentCard onConfirm={onConfirm} otpSent={otpSent} paymentData={paymentData} onPaymentChange={onPaymentChange} amount={total} isSubmitting={isSubmitting} />{serverError && <p className="mt-3 rounded-md border border-red-200 bg-red-50 dark:border-red-900/50! dark:bg-red-950/20! px-3 py-2 text-[12px] text-red-700 dark:text-red-400!">{t(serverError)}</p>}<PaymentMethods /></div><PaymentSummary doctor={doctor} appointment={appointment} total={total} /></div>
     </section>
   );
 }
 
 function PaymentSuccess({ onChat, onHome, onAddToCalendar, doctor, appointment, paymentData }) {
+  const { t } = useTranslation();
   const consultationFee = parseFee(doctor?.fee);
   const total = consultationFee + 50;
   const confirmationNumber = `TXN${Date.now()}`;
   const lastFour = digitsOnly(paymentData.cardNumber).slice(-4).padStart(4, "*");
+
+  const dateObj = appointment?.date;
+  let displayDate = "";
+  if (dateObj) {
+    const d = new Date(dateObj.id + "T00:00:00");
+    if (!isNaN(d.getTime())) {
+      displayDate = `${t("full_day_" + d.getDay())}, ${t("month_" + d.getMonth())} ${d.getDate()}, ${d.getFullYear()}`;
+    } else {
+      displayDate = dateObj.label;
+    }
+  }
+
   return (
     <section className="mx-auto max-w-[650px] space-y-5">
       <div className="rounded-xl border border-green-400 bg-green-50 dark:border-emerald-800/40! dark:bg-emerald-950/20! p-7 text-center shadow-sm">
         <div className="mx-auto flex size-14 items-center justify-center rounded-full border-4 border-green-200 bg-green-100 text-green-700 dark:border-emerald-900/30! dark:bg-emerald-900/30! dark:text-emerald-400!">
           <CheckCircle2 className="size-8" />
         </div>
-        <h1 className="mt-5 text-[18px] font-semibold text-green-900 dark:text-emerald-400!">Payment Successful!</h1>
-        <p className="mt-3 text-[12px] text-green-700 dark:text-emerald-300/80!">Your appointment has been confirmed and a confirmation email has been sent.</p>
+        <h1 className="mt-5 text-[18px] font-semibold text-green-900 dark:text-emerald-400!">{t("payment_successful")}</h1>
+        <p className="mt-3 text-[12px] text-green-700 dark:text-emerald-300/80!">{t("payment_success_desc")}</p>
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="text-[15px] font-medium text-slate-900">Appointment Confirmation</h2>
-        <p className="mt-1 text-[12px] text-gray-500">Please save this information for your records</p>
+        <h2 className="text-[15px] font-medium text-slate-900">{t("appointment_confirmation")}</h2>
+        <p className="mt-1 text-[12px] text-gray-500">{t("save_records_desc")}</p>
         <div className="mt-4 flex flex-wrap items-center gap-3 rounded-md border border-blue-100 bg-blue-50 dark:border-blue-900/50! dark:bg-blue-950/20! px-3 py-2 text-[12px]">
           <FileText className="size-4 text-blue-700 dark:text-blue-400!" />
-          <span className="font-semibold text-blue-800 dark:text-blue-300!">Confirmation Number:</span>
+          <span className="font-semibold text-blue-800 dark:text-blue-300!">{t("confirmation_number")}</span>
           <span className="tracking-wider text-blue-700 dark:text-blue-200!">{confirmationNumber}</span>
           <button type="button" className="ml-auto inline-flex items-center gap-1 rounded bg-white dark:bg-zinc-800! px-3 py-1 text-[11px] text-slate-700 dark:text-zinc-200! border dark:border-zinc-700!">
-            <Download className="size-3" /> Download Receipt
+            <Download className="size-3" /> {t("download_receipt")}
           </button>
         </div>
 
         <div className="mt-5 grid gap-8 md:grid-cols-2">
           <div className="space-y-3 text-[12px]">
             <div>
-              <p className="text-gray-500">Doctor</p>
+              <p className="text-gray-500">{t("doctor")}</p>
               <p className="mt-1 font-semibold text-slate-900">{doctor?.name}</p>
             </div>
             <div>
               <p className="flex items-center gap-1 text-gray-500">
-                <Calendar className="size-3.5 dark:text-zinc-400!" /> Date
+                <Calendar className="size-3.5 dark:text-zinc-400!" /> {t("date")}
               </p>
-              <p className="font-semibold text-slate-900">{appointment?.date?.label}</p>
+              <p className="font-semibold text-slate-900">{displayDate}</p>
             </div>
             <div>
               <p className="flex items-center gap-1 text-gray-500">
-                <Clock className="size-3.5 dark:text-zinc-400!" /> Time
+                <Clock className="size-3.5 dark:text-zinc-400!" /> {t("time")}
               </p>
               <p className="font-semibold text-slate-900">{appointment?.time}</p>
             </div>
           </div>
           <div className="space-y-2 text-[12px]">
-            <p className="text-gray-500">Payment Details</p>
+            <p className="text-gray-500">{t("appointment_details")}</p>
             <p>Card: **** {lastFour}</p>
-            <p>Amount Paid: ${total}</p>
+            <p>{t("amount_paid")}: {t("currency_format").replace("{val}", total)}</p>
             <p className="text-[10px] text-gray-500">Transaction ID: {confirmationNumber}</p>
           </div>
         </div>
 
         <div className="mt-5 border-t border-gray-200 pt-4 text-center">
           <button type="button" onClick={onAddToCalendar} className="h-8 min-w-[190px] rounded-md border border-gray-200 bg-white dark:bg-zinc-800! text-[12px] text-slate-700 dark:text-zinc-200! hover:bg-gray-50 dark:hover:bg-zinc-700! border dark:border-zinc-700! transition-colors">
-            <Calendar className="mr-1.5 inline size-3.5 dark:text-zinc-400!" />Add to Calendar
+            <Calendar className="mr-1.5 inline size-3.5 dark:text-zinc-400!" />{t("add_to_calendar")}
           </button>
         </div>
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-4 text-[14px] font-medium text-slate-900">What's Next?</h2>
+        <h2 className="mb-4 text-[14px] font-medium text-slate-900">{t("whats_next")}</h2>
         <div className="space-y-3 text-[12px] text-gray-600">
           <p>
             <span className="mr-2 inline-flex size-6 items-center justify-center rounded bg-blue-100 text-blue-600 dark:bg-blue-950/40! dark:text-blue-400!">✉</span>
-            <b>Confirmation Email</b>
+            <b>{t("email_confirmation_title")}</b>
             <br />
-            <span className="ml-8">A detailed confirmation email with appointment instructions has been sent to your registered email address.</span>
+            <span className="ml-8">{t("email_confirmation_desc")}</span>
           </p>
           <p>
             <span className="mr-2 inline-flex size-6 items-center justify-center rounded bg-green-100 text-green-600 dark:bg-emerald-950/40! dark:text-emerald-400!">▣</span>
-            <b>Calendar Reminder</b>
+            <b>{t("calendar_reminder_title")}</b>
             <br />
-            <span className="ml-8">Add this appointment to your calendar to receive reminders 24 hours and 1 hour before your appointment.</span>
+            <span className="ml-8">{t("calendar_reminder_desc")}</span>
           </p>
           <p>
             <span className="mr-2 inline-flex size-6 items-center justify-center rounded bg-purple-100 text-purple-600 dark:bg-purple-950/40! dark:text-purple-400!">!</span>
-            <b>Arrive 15 Minutes Early</b>
+            <b>{t("arrive_early_title")}</b>
             <br />
-            <span className="ml-8">Please arrive at the clinic 15 minutes before your scheduled appointment time for check-in.</span>
+            <span className="ml-8">{t("arrive_early_desc")}</span>
           </p>
           <p>
             <span className="mr-2 inline-flex size-6 items-center justify-center rounded bg-amber-100 text-amber-600 dark:bg-amber-950/40! dark:text-amber-400!">□</span>
-            <b>Prepare Your Information</b>
+            <b>{t("prepare_info_title")}</b>
             <br />
-            <span className="ml-8">Bring any relevant medical records, previous test results, and a list of current medications to your appointment.</span>
+            <span className="ml-8">{t("prepare_info_desc")}</span>
           </p>
         </div>
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="text-[14px] font-semibold text-slate-900">Need to Make Changes?</h2>
-        <p className="mt-2 text-[12px] text-gray-600">If you need to reschedule or cancel your appointment, please contact us at least 24 hours in advance.</p>
+        <h2 className="text-[14px] font-semibold text-slate-900">{t("need_changes_title")}</h2>
+        <p className="mt-2 text-[12px] text-gray-600">{t("need_changes_desc")}</p>
         <div className="mt-3 flex flex-wrap gap-6 text-[12px] text-blue-600">
           <span className="text-blue-600 dark:text-blue-400!">Call: 1-800-SKIN-CARE</span>
           <span className="text-blue-600 dark:text-blue-400!">Email: support@skinidentification.com</span>
@@ -635,10 +727,10 @@ function PaymentSuccess({ onChat, onHome, onAddToCalendar, doctor, appointment, 
 
       <div className="flex flex-wrap justify-center gap-4 pb-6">
         <button type="button" onClick={onChat} className="inline-flex h-9 min-w-[160px] items-center justify-center gap-2 rounded-md bg-blue-600 px-4 text-[12px] font-medium text-white">
-          <MessageCircle className="size-3.5" /> Chat with this doctor
+          <MessageCircle className="size-3.5" /> {t("chat_with_this_doctor")}
         </button>
         <button type="button" onClick={onHome} className="inline-flex h-9 min-w-[160px] items-center justify-center gap-2 rounded-md bg-[#050316] dark:bg-zinc-800! dark:hover:bg-zinc-700! px-4 text-[12px] font-medium text-white">
-          Return to Dashboard
+          {t("return_to_dashboard")}
         </button>
       </div>
     </section>
@@ -657,6 +749,7 @@ function MessageBubble({ side = "left", text, time }) {
 }
 
 function PatientDoctorChat({ onBack, onReportList, fromDoctor = false, doctor, appointment }) {
+  const { t } = useTranslation();
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -694,18 +787,18 @@ function PatientDoctorChat({ onBack, onReportList, fromDoctor = false, doctor, a
     try {
       await chatApi.send({ chat_id: chatId, message_text: messageText });
     } catch (apiError) {
-      setError(apiError.message || "Message could not be sent to the API.");
+      setError(apiError.message || "message_send_failed");
     } finally {
       setIsSending(false);
     }
   };
   return (
     <section className="mx-auto max-w-[980px] rounded-xl border border-gray-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3"><button type="button" onClick={onBack} className="flex items-center gap-3 text-left"><ArrowLeft className="size-4 text-slate-700" /><DoctorAvatar initials={fromDoctor ? "K" : doctor?.initials || "SJ"} className="size-8" /><div><h1 className="text-[14px] font-semibold text-slate-900">{fromDoctor ? "karim" : doctor?.name || "Dr. Sarah Johnson"}</h1><p className="text-[11px] text-gray-500">{fromDoctor ? "patient" : "Dermatology"}</p></div></button><span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-[11px] font-medium text-green-700"><Shield className="size-3" /> SECURE</span></div>
-      <div className="flex items-center justify-center gap-2 border-b border-blue-100 bg-blue-50 px-4 py-3 text-[12px] text-gray-600"><Lock className="size-3.5 text-blue-600" />End-to-end encrypted conversation. Your privacy is protected.</div>
-      <div className="flex justify-center py-4"><button type="button" onClick={onReportList} className="h-8 min-w-[135px] rounded-md border border-gray-300 bg-blue-100 px-4 text-[12px] text-slate-900">{fromDoctor ? "Get Report" : "Write Report"}</button></div>
+      <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3"><button type="button" onClick={onBack} className="flex items-center gap-3 text-left"><ArrowLeft className="size-4 text-slate-700" /><DoctorAvatar initials={fromDoctor ? "K" : doctor?.initials || "SJ"} className="size-8" /><div><h1 className="text-[14px] font-semibold text-slate-900">{fromDoctor ? "karim" : doctor?.name || "Dr. Sarah Johnson"}</h1><p className="text-[11px] text-gray-500">{fromDoctor ? "patient" : "Dermatology"}</p></div></button><span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-[11px] font-medium text-green-700"><Shield className="size-3" /> {t("secure")}</span></div>
+      <div className="flex items-center justify-center gap-2 border-b border-blue-100 bg-blue-50 px-4 py-3 text-[12px] text-gray-600"><Lock className="size-3.5 text-blue-600" />{t("powered_by_ai")}</div>
+      <div className="flex justify-center py-4"><button type="button" onClick={onReportList} className="h-8 min-w-[135px] rounded-md border border-gray-300 bg-blue-100 px-4 text-[12px] text-slate-900">{fromDoctor ? t("get_report") : t("write_report")}</button></div>
       <div className="min-h-[360px] space-y-7 bg-gray-50/60 px-8 py-4">{messages.map((message) => <MessageBubble key={message.id} side={message.side === "right" ? "right" : "left"} text={message.text} time={message.time} />)}</div>
-      <form onSubmit={handleSend} className="border-t border-gray-200 bg-white px-8 py-5"><div className="flex items-center gap-2"><div className={`flex h-10 flex-1 items-center rounded-lg border bg-white px-4 ${error ? "border-red-300" : "border-gray-200"}`}><input value={draft} onChange={(e) => { setDraft(sanitizeText(e.target.value, 500)); setError(""); }} className="min-w-0 flex-1 text-[13px] text-slate-700 outline-none placeholder:text-gray-400" placeholder="Type your message..." maxLength={500} /><Paperclip className="ml-auto size-4 text-gray-400" /></div><button type="submit" disabled={Boolean(validateMessage(draft)) || isSending} className="flex size-10 items-center justify-center rounded-lg bg-blue-600 text-white disabled:opacity-50"><Send className="size-5" /></button></div>{error && <p className="mt-2 text-[11px] font-medium text-red-600">{error}</p>}<p className="mt-3 text-center text-[10px] uppercase text-gray-400">Messages are monitored for quality assurance and training purposes</p></form>
+      <form onSubmit={handleSend} className="border-t border-gray-200 bg-white px-8 py-5"><div className="flex items-center gap-2"><div className={`flex h-10 flex-1 items-center rounded-lg border bg-white px-4 ${error ? "border-red-300" : "border-gray-200"}`}><input value={draft} onChange={(e) => { setDraft(sanitizeText(e.target.value, 500)); setError(""); }} className="min-w-0 flex-1 text-[13px] text-slate-700 outline-none placeholder:text-gray-400" placeholder={t("type_message")} maxLength={500} /><Paperclip className="ml-auto size-4 text-gray-400" /></div><button type="submit" disabled={Boolean(validateMessage(draft)) || isSending} className="flex size-10 items-center justify-center rounded-lg bg-blue-600 text-white disabled:opacity-50"><Send className="size-4 shrink-0" /></button></div>{error && <p className="mt-2 text-[11px] text-red-600">{t(error)}</p>}</form>
     </section>
   );
 }
@@ -713,15 +806,16 @@ function PatientDoctorChat({ onBack, onReportList, fromDoctor = false, doctor, a
 const reportText = `Patient presented with persistent, pruritic lesions on the antecubital and popliteal fossae. Clinical presentation is consistent with a flare-up of chronic atopic condition, potentially triggered by seasonal environmental allergens. Recommended immediate topical intervention and oral antihistamine course. Patient presented with persistent, pruritic lesions on the antecubital and popliteal fossae. Clinical presentation is consistent with a flare-up of chronic atopic condition, potentially triggered by seasonal environmental allergens. Recommended immediate topical intervention and oral antihistamine course. Patient presented with persistent, pruritic lesions on the antecubital and popliteal fossae. Clinical presentation is consistent with a flare-up of chronic atopic condition, potentially triggered by seasonal environmental allergens. Recommended immediate topical intervention and oral antihistamine ...`;
 
 function ReportList({ onBack, onOpen }) {
+  const { t } = useTranslation();
   return (
     <section className="mx-auto max-w-[860px] rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <button onClick={onBack} className="mb-5 inline-flex items-center gap-2 text-[12px] text-slate-900"><ArrowLeft className="size-3.5" /> Back to Chat</button>
-      <h1 className="text-[15px] font-medium text-slate-900">All Report</h1>
+      <button onClick={onBack} className="mb-5 inline-flex items-center gap-2 text-[12px] text-slate-900"><ArrowLeft className="size-3.5" /> {t("back_to_chat")}</button>
+      <h1 className="text-[15px] font-medium text-slate-900">{t("all_reports")}</h1>
       <div className="mt-6 space-y-5">
         {[1, 2, 3, 4, 5].map((item) => (
           <button key={item} onClick={onOpen} className="flex w-full items-center justify-between rounded-md bg-blue-50 px-5 py-4 text-left transition hover:bg-blue-100">
             <div>
-              <p className="text-[12px] font-semibold text-slate-800">Report dr.sarah</p>
+              <p className="text-[12px] font-semibold text-slate-800">{t("report_doctor").replace("{name}", "Dr. Sarah")}</p>
               <p className="mt-1 max-w-[520px] truncate text-[10px] text-slate-600">Hello! Thank you for booking an appointment with me. I've reviewed your payment confirmation for February 7, 2026 at 09:00 AM. Do</p>
             </div>
             <span className="text-[24px] text-slate-900">&gt;</span>
@@ -733,10 +827,11 @@ function ReportList({ onBack, onOpen }) {
 }
 
 function MedicalReport({ onBack }) {
+  const { t } = useTranslation();
   return (
     <section className="mx-auto max-w-[640px]">
-      <button onClick={onBack} className="mb-5 inline-flex items-center gap-2 text-[12px] text-slate-900"><ArrowLeft className="size-3.5" /> Back</button>
-      <h1 className="mb-4 text-[16px] font-semibold text-slate-900">Report dr.sarah</h1>
+      <button onClick={onBack} className="mb-5 inline-flex items-center gap-2 text-[12px] text-slate-900"><ArrowLeft className="size-3.5" /> {t("back")}</button>
+      <h1 className="mb-4 text-[16px] font-semibold text-slate-900">{t("report_doctor").replace("{name}", "Dr. Sarah")}</h1>
       <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-7 shadow-sm">
         <p className="max-w-[460px] text-[19px] font-bold leading-snug text-slate-900">
           {reportText}
@@ -793,7 +888,7 @@ export default function DoctorsTab({ onChromeChange, onSwitchToPatient, onSwitch
           setApiDoctors(list);
           if (list.length) setSelectedDoctor(list[0]);
         }
-      } catch { if (alive) setDoctorsError("Could not load doctors from API. Please try again later."); }
+      } catch { if (alive) setDoctorsError("doctors_load_error"); }
       finally { if (alive) setLoadingDoctors(false); }
     }
     loadDoctors();
@@ -867,7 +962,7 @@ export default function DoctorsTab({ onChromeChange, onSwitchToPatient, onSwitch
         setAppointment({ date: null, time: "" });
       }
     } catch {
-      setAvailabilityError("Could not load doctor availability from API. Please try again later.");
+      setAvailabilityError("availability_load_error");
       setDynamicDates([]);
       setAppointment({ date: null, time: "" });
     } finally {
@@ -891,13 +986,13 @@ export default function DoctorsTab({ onChromeChange, onSwitchToPatient, onSwitch
     setBookingError("");
     const doctorId = selectedDoctor?.medical_syndicate_id_card || selectedDoctor?.id;
     if (!doctorId || !nextAppointment?.date || !nextAppointment?.time) {
-      setBookingError("Please select a valid date and time before proceeding.");
+      setBookingError("select_date_time_error");
       return;
     }
     // analysis_id is required by the backend
     const analysisId = getLatestAnalysisId();
     if (!analysisId) {
-      setBookingError("Please upload and analyze a skin image before booking an appointment.");
+      setBookingError("upload_analysis_required");
       return;
     }
     setIsBooking(true);
@@ -913,13 +1008,13 @@ export default function DoctorsTab({ onChromeChange, onSwitchToPatient, onSwitch
       if (nextAppointmentId) { setAppointmentId(nextAppointmentId); saveLatestAppointmentId(nextAppointmentId); }
       if (nextChatId) saveLatestChatId(nextChatId);
       setView("payment");
-    } catch (error) { setBookingError(error.message || "Could not book appointment."); }
+    } catch (error) { setBookingError(error.message || "booking_failed"); }
     finally { setIsBooking(false); }
   };
 
   const confirmPayment = async () => {
     const activeAppointmentId = appointmentId || sessionStorage.getItem("skinner_latest_appointment_id");
-    if (!activeAppointmentId) { setPaymentError("Missing appointment ID. Please book the appointment again."); return; }
+    if (!activeAppointmentId) { setPaymentError("missing_appointment_id"); return; }
     setIsPaying(true); setPaymentError("");
     try {
       const response = await paymentApi.pay({ appointment_id: activeAppointmentId, method: "card", card_holder_name: cleanText(paymentData.cardholderName, 80), card_last4: digitsOnly(paymentData.cardNumber).slice(-4) });
@@ -927,7 +1022,7 @@ export default function DoctorsTab({ onChromeChange, onSwitchToPatient, onSwitch
       if (nextChatId) saveLatestChatId(nextChatId);
       onClearPending?.();
       setView("success");
-    } catch (error) { setPaymentError(error.message || "Payment failed. Please try again."); }
+    } catch (error) { setPaymentError(error.message || "payment_failed"); }
     finally { setIsPaying(false); }
   };
 
@@ -942,7 +1037,7 @@ export default function DoctorsTab({ onChromeChange, onSwitchToPatient, onSwitch
   };
 
   if (view === "booking") return <AppointmentBooking doctor={selectedDoctor} appointment={appointment} onAppointmentChange={setAppointment} onBack={() => setView("recommendations")} onProceed={proceedToPayment} serverError={bookingError} isSubmitting={isBooking} dates={dynamicDates} morningSlots={dynamicMorning} afternoonSlots={dynamicAfternoon} disabledSlots={dynamicDisabled} loadingDates={loadingDates} loadingSlots={loadingSlots} onDateSelect={handleDateSelect} availabilityError={availabilityError} />;
-  if (view === "map") return <DoctorMapView onBack={() => setView("recommendations")} onBook={openBooking} doctorList={doctorList} currentDoctor={selectedDoctor} />;
+  if (view === "map") return <DoctorMapView onBack={() => setView("recommendations")} onBook={openBooking} doctorList={doctorList} currentDoctor={selectedDoctor} onSelect={setSelectedDoctor} />;
   if (view === "payment") return <PaymentScreen doctor={selectedDoctor} appointment={appointment} paymentData={paymentData} onPaymentChange={setPaymentData} onBack={handlePaymentBack} onConfirm={() => setView("otp")} />;
   if (view === "otp") return <PaymentScreen otpSent doctor={selectedDoctor} appointment={appointment} paymentData={paymentData} onPaymentChange={setPaymentData} onBack={() => setView("payment")} onConfirm={confirmPayment} serverError={paymentError} isSubmitting={isPaying} />;
   if (view === "success") return <PaymentSuccess doctor={selectedDoctor} appointment={appointment} paymentData={paymentData} onChat={() => { onClearPending?.(); setView("recommendations"); onSwitchToChat?.(); }} onHome={() => { onClearPending?.(); setView("recommendations"); }} onAddToCalendar={() => { onClearPending?.(); setView("recommendations"); onSwitchToPatient?.(); }} />;

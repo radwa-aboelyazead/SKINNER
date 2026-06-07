@@ -1,34 +1,37 @@
 import { Activity, Check, Shield, Stethoscope } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
+import { useTranslation } from "../context/LanguageContext";
 
 export default function FeaturesSection() {
+  const { t } = useTranslation();
+
   const features = [
     {
       icon: <Activity className="size-5 text-blue-600 dark:text-blue-400" />,
-      title: "AI-Powered Analysis",
+      title: t("feature_ai_title"),
       titleColor: "text-blue-600 dark:text-blue-400",
-      desc: "Advanced machine learning algorithms provide instant preliminary skin condition identification",
+      desc: t("feature_ai_desc"),
       bg: "bg-blue-100 dark:bg-blue-950/40",
     },
     {
       icon: <Check className="size-5 text-green-600 dark:text-green-400" />,
-      title: "Expert Verification",
+      title: t("feature_expert_title"),
       titleColor: "text-green-600 dark:text-green-400",
-      desc: "All AI results are reviewed by verified dermatology specialists",
+      desc: t("feature_expert_desc"),
       bg: "bg-green-100 dark:bg-green-950/40",
     },
     {
       icon: <Shield className="size-5 text-violet-600 dark:text-violet-400" />,
-      title: "Secure & Private",
+      title: t("feature_secure_title"),
       titleColor: "text-violet-600 dark:text-violet-400",
-      desc: "HIPAA-compliant platform ensuring your health data remains confidential",
+      desc: t("feature_secure_desc"),
       bg: "bg-violet-100 dark:bg-violet-950/40",
     },
     {
       icon: <Stethoscope className="size-5 text-orange-600 dark:text-orange-400" />,
-      title: "Doctor Matching",
+      title: t("feature_matching_title"),
       titleColor: "text-orange-600 dark:text-orange-400",
-      desc: "Get connected with the right specialists based on your condition",
+      desc: t("feature_matching_desc"),
       bg: "bg-orange-100 dark:bg-orange-950/40",
     },
   ];
@@ -37,7 +40,7 @@ export default function FeaturesSection() {
     <section id="features" className="w-full bg-white dark:bg-[#0f172a] py-16 px-6">
       <div className="mx-auto max-w-6xl">
         <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-900 dark:text-white mb-12">
-          Why Choose Skin Disease Detection System?
+          {t("why_choose_system")}
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

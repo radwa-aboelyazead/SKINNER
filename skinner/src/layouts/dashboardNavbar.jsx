@@ -1,12 +1,22 @@
 import { Button } from "@/components/ui/button";
-import { Activity, LogOut, Shield } from "lucide-react";
+import { Activity, LogOut, Shield, Globe } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { authApi } from "@/services/skinnerApi";
 import ThemeToggle from "../components/ThemeToggle";
+import { useTranslation } from "../context/LanguageContext";
 
 export default function DashboardNavbar({ role = "patient", name, email, specialization }) {
   const { logout } = useAuth();
+  const { lang, toggleLanguage, t } = useTranslation();
+
+  const getSpecialtyLabel = (spec) => {
+    if (!spec || spec === "Specialization") return t("specialization");
+    const normalized = spec.toLowerCase().replace(/[\s_-]+/g, "_");
+    const key = `specialty_${normalized}`;
+    const translated = t(key);
+    return translated !== key ? translated : spec;
+  };
 
   const handleLogout = () => {
     // Best-effort server-side session revocation; don't await
@@ -16,7 +26,7 @@ export default function DashboardNavbar({ role = "patient", name, email, special
 
   const config = {
     doctor: {
-      title: "Doctor Portal",
+      title: t("doctor_portal"),
       bg: "bg-[#DBEAFE]",
       color: "text-[#155DFC]",
       icon: (
@@ -31,12 +41,12 @@ export default function DashboardNavbar({ role = "patient", name, email, special
       getRight: () => (
         <>
           <span className="line-clamp-1 max-w-[120px] text-[12px] font-medium md:max-w-[180px]">{name || "Dr. Name"}</span>
-          <span className="line-clamp-1 max-w-[120px] text-[10px] font-normal text-gray-500 md:max-w-[180px]">{specialization || "Specialization"}</span>
+          <span className="line-clamp-1 max-w-[120px] text-[10px] font-normal text-gray-500 md:max-w-[180px]">{getSpecialtyLabel(specialization)}</span>
         </>
       ),
     },
     patient: {
-      title: "Patient Portal",
+      title: t("patient_portal"),
       bg: "bg-[#DBEAFE]",
       color: "text-[#155DFC]",
       icon: <Activity size={18} />,
@@ -48,7 +58,7 @@ export default function DashboardNavbar({ role = "patient", name, email, special
       ),
     },
     admin: {
-      title: "Admin Portal",
+      title: t("admin_portal"),
       bg: "bg-[#F3E8FF]",
       color: "text-[#9810FA]",
       icon: <Shield size={18} />,
@@ -67,10 +77,12 @@ export default function DashboardNavbar({ role = "patient", name, email, special
   return (
     <nav className="sticky top-0 z-40 w-full border-b border-[#E5E7EB] bg-white px-4 py-3 dark:bg-zinc-950 dark:border-zinc-800">
       <div className="mx-auto flex max-w-[1110px] items-center justify-between">
-        <Link to={targetLink} className="flex min-w-0 items-center gap-2">
-          <div className={`flex size-8 items-center justify-center rounded-md ${current.bg} ${current.color}`}>
-            {current.icon}
-          </div>
+        <Link to={targetLink} className="flex min-w-0 items-center gap-3">
+          <img
+            src="/logo.jpeg"
+            alt="Skinner Logo"
+            className="size-8 rounded-md object-contain bg-white border border-gray-100 dark:border-zinc-800"
+          />
           <div className="flex flex-col min-w-0">
             <span className="truncate text-[13px] font-bold dark:text-white">Skinner</span>
             <span className="truncate text-[11px] font-normal text-gray-600 dark:text-zinc-400">{current.title}</span>
@@ -79,10 +91,22 @@ export default function DashboardNavbar({ role = "patient", name, email, special
 
         <div className="flex items-center gap-4 text-black md:gap-6">
           <div className="flex flex-col items-end min-w-0 dark:text-zinc-300">{current.getRight()}</div>
+          
           <ThemeToggle />
+
+          {/* Globe Language Toggle */}
+          <button
+            onClick={toggleLanguage}
+            className="flex items-center gap-1.5 text-black dark:text-white hover:opacity-70 transition cursor-pointer"
+            title={lang === "en" ? "Switch to Arabic" : "تغيير للغة الإنجليزية"}
+          >
+            <Globe className="size-4" />
+            <span className="text-[13px] font-medium">{lang === "en" ? "AR" : "EN"}</span>
+          </button>
+
           <Button size="sm" className="h-8 rounded-md px-3 text-[12px] dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900" variant="outline" onClick={handleLogout}>
             <LogOut className="mr-1 size-3.5" />
-            <span className="hidden sm:inline">Logout</span>
+            <span className="hidden sm:inline">{t("logout")}</span>
           </Button>
         </div>
       </div>

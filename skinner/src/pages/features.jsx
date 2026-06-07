@@ -1,5 +1,6 @@
 import Navbar from "../layouts/navbar";
 import Footer from "../layouts/footer";
+import { useTranslation } from "../context/LanguageContext";
 import {
   Activity,
   Bot,
@@ -19,112 +20,114 @@ import {
 const FEATURES = [
   {
     icon: Camera,
-    title: "AI Skin Analysis",
-    description:
-      "Upload a photo of your skin condition and receive an instant AI-powered preliminary diagnosis with confidence score — all in seconds.",
+    titleKey: "feat_ai_title",
+    descKey: "feat_ai_desc",
     color: "bg-blue-100 text-blue-600",
-    tag: "Core Feature",
+    tagKey: "tag_core",
+    defaultTag: "Core Feature",
   },
   {
     icon: Stethoscope,
-    title: "Verified Dermatologists",
-    description:
-      "Browse a network of verified, board-certified dermatologists. View their specialties, experience, ratings, and clinic locations before booking.",
+    titleKey: "feat_dr_title",
+    descKey: "feat_dr_desc",
     color: "bg-green-100 text-green-600",
-    tag: "Doctor Network",
+    tagKey: "tag_dr",
+    defaultTag: "Doctor Network",
   },
   {
     icon: MessageCircle,
-    title: "Secure Doctor-Patient Chat",
-    description:
-      "Communicate with your dermatologist through end-to-end encrypted messaging. Share images, files, and documents directly within the conversation.",
+    titleKey: "feat_chat_title",
+    descKey: "feat_chat_desc",
     color: "bg-purple-100 text-purple-600",
-    tag: "Communication",
+    tagKey: "tag_comm",
+    defaultTag: "Communication",
   },
   {
     icon: Calendar,
-    title: "Smart Appointment Booking",
-    description:
-      "Book appointments with real-time availability. Select your preferred date and time slot, view the doctor's schedule, and confirm instantly.",
+    titleKey: "feat_booking_title",
+    descKey: "feat_booking_desc",
     color: "bg-amber-100 text-amber-600",
-    tag: "Scheduling",
+    tagKey: "tag_sched",
+    defaultTag: "Scheduling",
   },
   {
     icon: CreditCard,
-    title: "Secure Payments with OTP",
-    description:
-      "Pay for consultations securely with PCI-DSS compliant processing. Every transaction is verified with a one-time password (OTP) for maximum security.",
+    titleKey: "feat_payment_title",
+    descKey: "feat_payment_desc",
     color: "bg-rose-100 text-rose-600",
-    tag: "Payments",
+    tagKey: "tag_pay",
+    defaultTag: "Payments",
   },
   {
     icon: Bot,
-    title: "AI Health Assistant",
-    description:
-      "Get instant answers about skin conditions, treatment options, and platform guidance from our HIPAA-compliant AI chatbot — available 24/7.",
+    titleKey: "feat_bot_title",
+    descKey: "feat_bot_desc",
     color: "bg-cyan-100 text-cyan-600",
-    tag: "AI Powered",
+    tagKey: "tag_ai",
+    defaultTag: "AI Powered",
   },
   {
     icon: FileText,
-    title: "Medical Reports & Downloads",
-    description:
-      "Doctors can write detailed medical reports directly within the platform. Patients receive downloadable reports and can review their diagnosis history.",
+    titleKey: "feat_report_title",
+    descKey: "feat_report_desc",
     color: "bg-indigo-100 text-indigo-600",
-    tag: "Documentation",
+    tagKey: "tag_doc",
+    defaultTag: "Documentation",
   },
   {
     icon: Upload,
-    title: "Image Upload & Case Review",
-    description:
-      "Patients upload skin images for analysis. Doctors review cases with full patient information and AI predictions before consulting.",
+    titleKey: "feat_upload_title",
+    descKey: "feat_upload_desc",
     color: "bg-teal-100 text-teal-600",
-    tag: "Workflow",
+    tagKey: "tag_flow",
+    defaultTag: "Workflow",
   },
   {
     icon: MapPin,
-    title: "Clinic Location Maps",
-    description:
-      "View your doctor's clinic on an interactive Google Maps embed. Get directions to the exact address for your in-person appointment.",
+    titleKey: "feat_map_title",
+    descKey: "feat_map_desc",
     color: "bg-orange-100 text-orange-600",
-    tag: "Navigation",
+    tagKey: "tag_nav",
+    defaultTag: "Navigation",
   },
   {
     icon: Users,
-    title: "Doctor Dashboard & Analytics",
-    description:
-      "Doctors manage pending and reviewed cases, set availability schedules, and track patient analytics — all from a unified dashboard.",
+    titleKey: "feat_dash_title",
+    descKey: "feat_dash_desc",
     color: "bg-pink-100 text-pink-600",
-    tag: "For Doctors",
+    tagKey: "tag_fordr",
+    defaultTag: "For Doctors",
   },
   {
     icon: Shield,
-    title: "Privacy & Data Protection",
-    description:
-      "All conversations are end-to-end encrypted. Medical data is handled with HIPAA-compliant standards. Your health information stays private.",
+    titleKey: "feat_privacy_title",
+    descKey: "feat_privacy_desc",
     color: "bg-emerald-100 text-emerald-600",
-    tag: "Security",
+    tagKey: "tag_sec",
+    defaultTag: "Security",
   },
   {
     icon: Activity,
-    title: "Analysis Library",
-    description:
-      "Access a comprehensive library of past analyses and skin condition information. Track your skin health journey with a complete history of results.",
+    titleKey: "feat_library_title",
+    descKey: "feat_library_desc",
     color: "bg-violet-100 text-violet-600",
-    tag: "Knowledge",
+    tagKey: "tag_knowledge",
+    defaultTag: "Knowledge",
   },
 ];
 
 function FeatureCard({ feature, index }) {
   const Icon = feature.icon;
+  const { t } = useTranslation();
+  
   return (
     <article
-      className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+      className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:bg-zinc-900 dark:border-zinc-800"
       style={{ animationDelay: `${index * 60}ms` }}
     >
       {/* Tag */}
-      <span className="mb-4 inline-block rounded-full bg-gray-100 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-        {feature.tag}
+      <span className="mb-4 inline-block rounded-full bg-gray-100 dark:bg-zinc-800 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-zinc-400">
+        {t(feature.tagKey) || feature.defaultTag}
       </span>
 
       {/* Icon */}
@@ -133,51 +136,53 @@ function FeatureCard({ feature, index }) {
       </div>
 
       {/* Content */}
-      <h3 className="text-[15px] font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
-        {feature.title}
+      <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">
+        {t(feature.titleKey)}
       </h3>
-      <p className="mt-2 text-[13px] leading-relaxed text-gray-500">
-        {feature.description}
+      <p className="mt-2 text-[13px] leading-relaxed text-gray-500 dark:text-zinc-400">
+        {t(feature.descKey)}
       </p>
 
       {/* Decorative corner gradient */}
-      <div className="pointer-events-none absolute -bottom-8 -right-8 size-24 rounded-full bg-gradient-to-br from-blue-50 to-purple-50 opacity-0 transition-opacity group-hover:opacity-100" />
+      <div className="pointer-events-none absolute -bottom-8 -right-8 size-24 rounded-full bg-gradient-to-br from-blue-50 to-purple-50 opacity-0 transition-opacity group-hover:opacity-100 dark:from-zinc-800 dark:to-zinc-800" />
     </article>
   );
 }
 
 export default function Features() {
+  const { t } = useTranslation();
+
   return (
-    <main className="flex min-h-screen flex-col bg-white">
+    <main className="flex min-h-screen flex-col bg-white dark:bg-zinc-950">
       <Navbar />
 
-      <section className="flex-1 bg-[linear-gradient(135deg,#EFF6FF_0%,#FFFFFF_50%,#FAF5FF_100%)]">
+      <section className="flex-1 bg-[linear-gradient(135deg,#EFF6FF_0%,#FFFFFF_50%,#FAF5FF_100%)] dark:bg-none dark:bg-zinc-950">
         <div className="mx-auto max-w-6xl px-6 py-16">
           {/* Header */}
           <div className="text-center">
-            <span className="inline-block rounded-full bg-blue-100 px-4 py-1.5 text-[12px] font-semibold text-blue-700">
-              Platform Features
+            <span className="inline-block rounded-full bg-blue-100 dark:bg-blue-950/40 px-4 py-1.5 text-[12px] font-semibold text-blue-700 dark:text-blue-400">
+              {t("platform_features")}
             </span>
-            <h1 className="mt-4 text-[28px] font-bold text-slate-900 md:text-[40px]">
-              Everything You Need for
-              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Skin Health</span>
+            <h1 className="mt-4 text-[28px] font-bold text-slate-900 dark:text-white md:text-[40px]">
+              {t("everything_needed_title")}
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> {t("skin_health")}</span>
             </h1>
-            <p className="mx-auto mt-4 max-w-2xl text-[15px] leading-relaxed text-gray-500">
-              From AI-powered diagnosis to verified doctor consultations, Skinner brings together cutting-edge technology and medical expertise in one seamless platform.
+            <p className="mx-auto mt-4 max-w-2xl text-[15px] leading-relaxed text-gray-500 dark:text-zinc-400">
+              {t("platform_desc")}
             </p>
           </div>
 
           {/* Stats bar */}
           <div className="mx-auto mt-12 grid max-w-3xl grid-cols-2 gap-4 md:grid-cols-4">
             {[
-              { value: "AI-Powered", label: "Skin Analysis" },
-              { value: "Verified", label: "Dermatologists" },
-              { value: "End-to-End", label: "Encryption" },
-              { value: "24/7", label: "AI Assistant" },
+              { value: t("stat_ai"), label: t("stat_ai_label") },
+              { value: t("stat_verified"), label: t("stat_verified_label") },
+              { value: t("stat_enc"), label: t("stat_enc_label") },
+              { value: t("stat_247"), label: t("stat_247_label") },
             ].map((stat) => (
-              <div key={stat.label} className="rounded-xl border border-gray-100 bg-white p-4 text-center shadow-sm">
-                <p className="text-[15px] font-bold text-blue-600">{stat.value}</p>
-                <p className="mt-1 text-[11px] text-gray-500">{stat.label}</p>
+              <div key={stat.label} className="rounded-xl border border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 text-center shadow-sm">
+                <p className="text-[15px] font-bold text-blue-600 dark:text-blue-400">{stat.value}</p>
+                <p className="mt-1 text-[11px] text-gray-500 dark:text-zinc-400">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -185,7 +190,7 @@ export default function Features() {
           {/* Features Grid */}
           <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((feature, index) => (
-              <FeatureCard key={feature.title} feature={feature} index={index} />
+              <FeatureCard key={feature.titleKey} feature={feature} index={index} />
             ))}
           </div>
 
@@ -193,23 +198,23 @@ export default function Features() {
           <div className="mt-16 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-center shadow-lg md:p-12">
             <Lock className="mx-auto size-10 text-white/80" />
             <h2 className="mt-4 text-[22px] font-bold text-white md:text-[26px]">
-              Ready to Take Control of Your Skin Health?
+              {t("ready_control")}
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-[14px] leading-relaxed text-white/80">
-              Join Skinner today and get access to AI-powered skin analysis, verified dermatologists, and secure medical consultations — all in one platform.
+              {t("join_skinner_desc")}
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-4">
               <a
                 href="/register"
                 className="inline-flex h-11 items-center gap-2 rounded-lg bg-white px-6 text-[13px] font-semibold text-blue-600 transition hover:bg-blue-50"
               >
-                Get Started Free
+                {t("get_started_free")}
               </a>
               <a
                 href="/contact-us"
                 className="inline-flex h-11 items-center gap-2 rounded-lg border border-white/30 px-6 text-[13px] font-semibold text-white transition hover:bg-white/10"
               >
-                Contact Us
+                {t("contact_us")}
               </a>
             </div>
           </div>

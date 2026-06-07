@@ -13,6 +13,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { cleanText, sanitizeText, validateMessage } from "@/lib/formValidation";
 import { chatbotApi, getCurrentUser, unwrapData } from "@/services/skinnerApi";
+import { useTranslation } from "@/context/LanguageContext";
 
 function getUserStorageKeys() {
   const user = getCurrentUser();
@@ -23,33 +24,28 @@ function getUserStorageKeys() {
   };
 }
 
-function loadStoredMessages(userName, storageKey) {
-  try {
-    const raw = sessionStorage.getItem(storageKey);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) return parsed;
-    }
-  } catch { /* ignore */ }
-  return [makeWelcome(userName)];
-}
-
-function makeWelcome(userName) {
-  return {
-    id: 1,
-    from: "ai",
-    text: `Hello ${userName}! I'm your AI Health Assistant. I can help answer questions about your skin condition, provide general health information, and guide you through the platform. How can I assist you today?`,
-    time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }),
-  };
-}
-
 export default function AIHealthAssistant({ userName = "there" }) {
+  const { t } = useTranslation();
   const keys = useMemo(() => getUserStorageKeys(), []);
   const [isExpanded, setIsExpanded] = useState(false);
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState(() => sessionStorage.getItem(keys.conv) || "");
   const [isSending, setIsSending] = useState(false);
-  const [messages, setMessages] = useState(() => loadStoredMessages(userName, keys.msgs));
+  const [messages, setMessages] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem(keys.msgs);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) return parsed;
+      }
+    } catch { /* ignore */ }
+    return [{
+      id: 1,
+      from: "ai",
+      text: t("ai_welcome").replace("{name}", userName),
+      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }),
+    }];
+  });
 
   const messagesEndRef = useRef(null);
 
@@ -94,14 +90,14 @@ export default function AIHealthAssistant({ userName = "there" }) {
       setMessages((prev) => [...prev, {
         id: Date.now() + 1,
         from: "ai",
-        text: data?.answer || "I received your message, but no answer was returned from the chatbot service.",
+        text: data?.answer || t("ai_no_answer"),
         time: now(),
       }]);
     } catch (error) {
       setMessages((prev) => [...prev, {
         id: Date.now() + 1,
         from: "ai",
-        text: error.message || "The AI assistant is currently unavailable. Please try again later.",
+        text: error.message || t("ai_assistant_unavailable"),
         time: now(),
       }]);
     } finally {
@@ -122,10 +118,10 @@ export default function AIHealthAssistant({ userName = "there" }) {
             <Bot className="size-5 text-white" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold">AI Health Assistant</h3>
+            <h3 className="text-sm font-semibold">{t("ai_health_assistant")}</h3>
             <div className="flex items-center gap-1 text-[11px] text-white/90">
               <Lock className="size-3" />
-              <span>HIPAA Compliant • Encrypted</span>
+              <span>{t("hipaa_compliant_encrypted")}</span>
             </div>
           </div>
         </div>
@@ -146,8 +142,7 @@ export default function AIHealthAssistant({ userName = "there" }) {
       <div className="bg-yellow-50 border-b border-yellow-100 px-4 py-2.5 flex items-start gap-2 shrink-0">
         <AlertCircle className="size-4 text-yellow-600 mt-0.5 shrink-0" />
         <p className="text-[12px] text-yellow-800 leading-relaxed">
-          This chatbot provides general information only and is not a
-          substitute for professional medical advice.
+          {t("chatbot_warning")}
         </p>
       </div>
 
@@ -181,7 +176,7 @@ export default function AIHealthAssistant({ userName = "there" }) {
                 <span>{msg.time}</span>
                 <span>•</span>
                 <Lock className="size-3" />
-                <span>Encrypted</span>
+                <span>{t("encrypted")}</span>
               </div>
             </div>
           </div>
@@ -199,7 +194,7 @@ export default function AIHealthAssistant({ userName = "there" }) {
             type="text"
             value={input}
             onChange={(e) => setInput(sanitizeText(e.target.value, 500))}
-            placeholder="Type your message..."
+            placeholder={t("type_message")}
             className="flex-1 rounded-lg bg-gray-50 px-3 py-2 text-[13px] outline-none border border-gray-200 focus:border-blue-300 focus:bg-white transition"
           />
           <button
@@ -211,7 +206,7 @@ export default function AIHealthAssistant({ userName = "there" }) {
           </button>
         </div>
         <p className="text-center text-[11px] text-gray-400 mt-2">
-          Powered by AI • End-to-end encrypted
+          {t("powered_by_ai")}
         </p>
       </form>
     </Card>

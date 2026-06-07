@@ -26,20 +26,35 @@ import { chatApi, doctorApi, doctorApi as _doctorApi, profileApi, unwrapData, an
 import { adaptAnalysis, adaptDoctorCase, adaptMessage, toArray } from "@/services/apiAdapters";
 import DoctorSchedule from "./doctorSchedule";
 import { io } from "socket.io-client";
+import { useTranslation } from "@/context/LanguageContext";
 
 
-function DashboardTabs({ pendingCount = 2 }) {
+function DashboardTabs({ pendingCount = 0, pendingUnread = 0, reviewedUnread = 0 }) {
+  const { t } = useTranslation();
   return (
-    <div className="flex justify-center">
-      <TabsList className="grid h-9 grid-cols-3 rounded-xl bg-[#ECECF0] p-1 shadow-sm">
-        <TabsTrigger value="pending-cases" className="text-[12px] data-active:bg-white data-active:shadow-sm">
-          <Info className="size-4" /> Pending Cases ({pendingCount})
+    <div className="flex justify-center w-full px-2">
+      <TabsList className="grid h-9 grid-cols-3 rounded-xl bg-[#ECECF0] p-1 shadow-sm w-full max-w-md md:max-w-lg">
+        <TabsTrigger value="pending-cases" className="text-[11px] sm:text-[12px] data-active:bg-white data-active:shadow-sm px-1 sm:px-2 flex items-center justify-center gap-1">
+          <Info className="size-3.5 hidden sm:inline-block" />
+          <span>{t("pending_cases_tab")} ({pendingCount})</span>
+          {pendingUnread > 0 && (
+            <span className="ml-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-600 px-1 text-[8px] font-semibold text-white">
+              {pendingUnread}
+            </span>
+          )}
         </TabsTrigger>
-        <TabsTrigger value="reviewed-cases" className="text-[12px] data-active:bg-white data-active:shadow-sm">
-          <FileText className="size-4" /> Finished Cases
+        <TabsTrigger value="reviewed-cases" className="text-[11px] sm:text-[12px] data-active:bg-white data-active:shadow-sm px-1 sm:px-2 flex items-center justify-center gap-1">
+          <FileText className="size-3.5 hidden sm:inline-block" />
+          <span>{t("finished_cases_tab")}</span>
+          {reviewedUnread > 0 && (
+            <span className="ml-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-600 px-1 text-[8px] font-semibold text-white">
+              {reviewedUnread}
+            </span>
+          )}
         </TabsTrigger>
-        <TabsTrigger value="schedule" className="text-[12px] data-active:bg-white data-active:shadow-sm">
-          <Calendar className="size-4" /> Schedule
+        <TabsTrigger value="schedule" className="text-[11px] sm:text-[12px] data-active:bg-white data-active:shadow-sm px-1 sm:px-2 flex items-center justify-center gap-1">
+          <Calendar className="size-3.5 hidden sm:inline-block" />
+          <span>{t("schedule_tab")}</span>
         </TabsTrigger>
       </TabsList>
     </div>
@@ -47,70 +62,137 @@ function DashboardTabs({ pendingCount = 2 }) {
 }
 
 function CaseReviewDetail({ item, onBack, onStartChat, onViewReport, hasChatMessages }) {
+  const { t, lang } = useTranslation();
   const reportText = item.raw?.report_diagnosis || item.raw?.notes || item.raw?.diagnosis || "";
+  const chatStatus = item.raw?.chat_status || "active";
+  const isLocked = chatStatus === "locked";
+  const hasReport = !!reportText;
+
+  const appointmentDate = item.raw?.appointment_date || item.appointment_date || "";
+  const apptDateObj = appointmentDate ? new Date(appointmentDate) : null;
+  const isPastAppt = apptDateObj && apptDateObj <= new Date();
+
+  const getConditionLabel = (condition) => {
+    if (!condition) return t("unknown_condition");
+    const key = `${String(condition).toLowerCase().replace(/[\s_-]+/g, "")}_title`;
+    const translated = t(key);
+    if (translated !== key) return translated;
+    const lower = String(condition).toLowerCase();
+    const prefixes = ["moles","acne","actinic_keratosis","bullous","drugeruption","eczema","lichen","lupus","rosacea","seborrh_keratoses","skincancer","tinea","unknown_normal","vasculitis","vitiligo","warts"];
+    for (const p of prefixes) {
+      if (lower.includes(p.replace(/_/g, ""))) {
+        const t2 = t(`${p}_title`);
+        if (t2 !== `${p}_title`) return t2;
+      }
+    }
+    return condition;
+  };
 
   const getButtonText = () => {
-    if (item?.status === "completed" || reportText) {
-      return "Read Chat";
+    if (!isPastAppt) {
+      if (hasChatMessages) return t("continue_chat");
+      return t("start_chat");
     }
-    if (hasChatMessages) {
-      return "Continue Chat";
+    if (isLocked) {
+      return t("read_chat");
     }
-    return "Start Chat with Patient";
+    return t("follow_up_chat");
+  };
+
+  const renderReportSection = () => {
+    if (hasReport) {
+      return (
+        <button
+          onClick={() => onViewReport(item, reportText)}
+          className="h-9 w-full rounded-md border border-gray-200 bg-white text-[12px] font-medium text-slate-800 hover:bg-gray-50 transition cursor-pointer dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
+        >
+          {isLocked ? t("view_report") : t("view_edit_report")}
+        </button>
+      );
+    } else {
+      if (isLocked) {
+        return (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-center text-[12px] text-gray-500 dark:bg-zinc-950 dark:border-zinc-800 font-sans">
+            <Lock className="inline-block size-3.5 mr-1" />
+            {t("report_not_submitted")}
+          </div>
+        );
+      } else {
+        return (
+          <button
+            onClick={() => onViewReport(item, "")}
+            className="h-9 w-full rounded-md border border-gray-200 bg-white text-[12px] font-medium text-slate-800 hover:bg-gray-50 transition cursor-pointer dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
+          >
+            {t("write_report")}
+          </button>
+        );
+      }
+    }
   };
 
   return (
     <section className="mx-auto max-w-[760px] rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:bg-[#111827] dark:border-zinc-800">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[16px] font-medium text-slate-900 dark:text-white">Case Review: {item.patient_name}</h1>
-          <p className="text-[12px] text-gray-500 dark:text-zinc-400">Submitted on {item.submitted_on}</p>
+          <h1 className="text-[16px] font-medium text-slate-900 dark:text-white">{t("case_review_colon")} {item.patient_name}</h1>
+          <p className="text-[12px] text-gray-500 dark:text-zinc-400 font-sans">{t("submitted_on")} {formatDateTime(item.submitted_on, lang)}</p>
         </div>
-        <button onClick={onBack} className="rounded-md border border-gray-200 bg-white px-4 py-2 text-[12px] text-slate-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">Back to List</button>
+        <button onClick={onBack} className="rounded-md border border-gray-200 bg-white px-4 py-2 text-[12px] text-slate-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">{t("back_to_list")}</button>
       </div>
+
+      {/* Warning banner if appointment has passed and report is missing */}
+      {!hasReport && isPastAppt && (
+        <div className={`mb-5 rounded-lg border p-4 text-[12px] font-sans ${
+          isLocked
+            ? "border-gray-200 bg-gray-50 text-gray-500"
+            : "border-amber-200 bg-amber-50 text-amber-800"
+        }`}>
+          <div className="flex gap-2 items-center">
+            {isLocked ? <Lock className="size-4 shrink-0" /> : <Info className="size-4 shrink-0 text-amber-600" />}
+            <span>
+              {isLocked
+                ? t("case_closed_expired")
+                : t("report_required_passed")}
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 md:grid-cols-[1fr_300px]">
         <div>
-          <p className="mb-3 text-[12px] text-gray-500 dark:text-zinc-400">Patient Image</p>
+          <p className="mb-3 text-[12px] text-gray-500 dark:text-zinc-400">{t("patient_image")}</p>
           <img src={item.patient_image} alt="Patient case" className="h-[240px] w-full rounded-md object-cover" />
         </div>
         <div className="space-y-5">
           <section>
-            <h2 className="mb-3 text-[12px] text-gray-500 dark:text-zinc-400">Patient Information</h2>
+            <h2 className="mb-3 text-[12px] text-gray-500 dark:text-zinc-400">{t("patient_info")}</h2>
             <div className="space-y-3 text-[13px] dark:text-zinc-300">
-              <p><span className="font-semibold">Age:</span> {item.patient_age}</p>
-              <p><span className="font-semibold">Gender:</span> {item.patient_gender}</p>
+              <p><span className="font-semibold">{t("age")}:</span> {item.patient_age}</p>
+              <p><span className="font-semibold">{t("gender")}:</span> {t(item.patient_gender?.toLowerCase()) || item.patient_gender}</p>
             </div>
           </section>
           <section>
-            <h2 className="mb-3 text-[12px] text-gray-500 dark:text-zinc-400">AI Analysis</h2>
+            <h2 className="mb-3 text-[12px] text-gray-500 dark:text-zinc-400">{t("ai_analysis")}</h2>
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:bg-zinc-950 dark:border-zinc-800">
-              <p className="text-[14px] font-medium text-slate-900 dark:text-white">{item.ai_diagnosis || "N/A"}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <p className="text-[14px] font-medium text-slate-900 dark:text-white">{getConditionLabel(item.ai_diagnosis)}</p>
+              <div className="mt-3 flex flex-wrap gap-2 font-sans">
                 <Badge variant={item.ai_confidence_level?.toLowerCase() === "high" ? "destructive" : "medium"} className="rounded-md uppercase">
-                  {item.ai_confidence_level || "unknown"} Confidence
+                  {t(item.ai_confidence_level?.toLowerCase()) || item.ai_confidence_level || t("unknown")} {t("confidence_suffix")}
                 </Badge>
-                <Badge variant="outline" className="rounded-md dark:border-zinc-800 dark:text-zinc-300">{item.ai_confidence || "0%"} Confidence</Badge>
+                <Badge variant="outline" className="rounded-md dark:border-zinc-800 dark:text-zinc-300">{item.ai_confidence || "0%"} {t("confidence")}</Badge>
               </div>
             </div>
           </section>
           {item.ai_note && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-[12px] leading-relaxed text-amber-900 dark:bg-zinc-950 dark:border-zinc-800">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-[12px] leading-relaxed text-amber-900 dark:bg-zinc-950 dark:border-zinc-800 font-sans">
               <div className="flex gap-2">
                 <Info className="mt-0.5 size-4" />
                 <span>{item.ai_note}</span>
               </div>
             </div>
           )}
-          {reportText && onViewReport && (
-            <button
-              onClick={() => onViewReport(item, reportText)}
-              className="h-9 w-full rounded-md border border-gray-200 bg-white text-[12px] font-medium text-slate-800 hover:bg-gray-50 transition cursor-pointer dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
-            >
-              View & Edit Report
-            </button>
-          )}
-          <button onClick={onStartChat} className="h-9 w-full rounded-md bg-[#050316] text-[12px] font-medium text-white transition hover:bg-opacity-95">
+          {onViewReport && renderReportSection()}
+          <button onClick={onStartChat} className="h-9 w-full rounded-md bg-[#050316] text-[12px] font-medium text-white transition hover:bg-opacity-95 dark:bg-blue-600 dark:hover:bg-blue-500">
             {getButtonText()}
           </button>
         </div>
@@ -131,14 +213,16 @@ function downloadReport(reportText, patientName) {
   URL.revokeObjectURL(url);
 }
 
-function DoctorReportEditor({ onBack, onSubmit, initialReport = "", patientName = "", existingReport = "", backLabel = "Back to Chat" }) {
-  // If a submitted report already exists, start in read-only "view" mode
-  const [mode, setMode] = useState(existingReport ? "view" : "edit");
+function DoctorReportEditor({ onBack, onSubmit, initialReport = "", patientName = "", existingReport = "", backLabel = "Back to Chat", readOnly = false }) {
+  const { t } = useTranslation();
+  // If a submitted report already exists, start in read-only "view" mode. Or if readOnly is true, always keep in view mode.
+  const [mode, setMode] = useState(existingReport || readOnly ? "view" : "edit");
   const [report, setReport] = useState(existingReport || initialReport);
   const [draft, setDraft] = useState(existingReport || initialReport);
   const [error, setError] = useState("");
 
   const handleSubmit = async () => {
+    if (readOnly) return;
     const cleanReport = cleanMultiline(draft, 2500);
     const nextError = validateReport(cleanReport);
     setError(nextError);
@@ -169,12 +253,12 @@ function DoctorReportEditor({ onBack, onSubmit, initialReport = "", patientName 
         onClick={handleBackClick} 
         className="mb-5 inline-flex items-center gap-2 text-[12px] text-slate-900"
       >
-        <ArrowLeft className="size-3.5" /> {mode === "edit" && existingReport ? "Back to Report" : backLabel}
+        <ArrowLeft className="size-3.5" /> {mode === "edit" && existingReport ? (t("back_to_report") || "Back to Report") : backLabel}
       </button>
 
-      <div className="mb-4 flex items-center justify-between gap-4">
+      <div className="mb-4 flex items-center justify-between gap-4 font-sans">
         <h1 className="text-[16px] font-semibold text-slate-900">
-          Medical Report{patientName ? ` — ${patientName}` : ""}
+          {t("medical_report")}{patientName ? ` — ${patientName}` : ""}
         </h1>
         {mode === "view" && (
           <div className="flex gap-2">
@@ -183,45 +267,56 @@ function DoctorReportEditor({ onBack, onSubmit, initialReport = "", patientName 
               onClick={() => downloadReport(report, patientName)}
               className="inline-flex h-8 items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 text-[12px] text-slate-700 hover:bg-gray-50"
             >
-              <FileText className="size-3.5" /> Download Report
+              <FileText className="size-3.5" /> {t("download_report")}
             </button>
-            <button
-              type="button"
-              onClick={() => { setDraft(report); setMode("edit"); setError(""); }}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[#050316] px-3 text-[12px] text-white hover:bg-[#111026]"
-            >
-              Edit
-            </button>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => { setDraft(report); setMode("edit"); setError(""); }}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[#050316] px-3 text-[12px] text-white hover:bg-[#111026]"
+              >
+                {t("edit")}
+              </button>
+            )}
           </div>
         )}
       </div>
 
+      {readOnly && (
+        <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-4 text-[12px] text-gray-500 font-sans">
+          <div className="flex gap-2 items-center">
+            <Lock className="size-4 shrink-0 text-gray-400" />
+            <span>{t("report_readonly_expired")}</span>
+          </div>
+        </div>
+      )}
+
       {/* ── VIEW MODE ── */}
       {mode === "view" && (
         <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-7 shadow-sm">
-          <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-slate-900">{report}</p>
+          <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-slate-900 font-sans">{report}</p>
         </div>
       )}
 
       {/* ── EDIT MODE ── */}
-      {mode === "edit" && (
+      {mode === "edit" && !readOnly && (
         <>
           <textarea
-            className={`min-h-[390px] w-full rounded-xl border bg-blue-50/70 p-7 text-[15px] leading-snug text-slate-900 outline-none shadow-sm ${error ? "border-red-300" : "border-blue-200"}`}
+            className={`min-h-[390px] w-full rounded-xl border bg-blue-50/70 p-7 text-[15px] leading-snug text-slate-900 outline-none shadow-sm font-sans ${error ? "border-red-300" : "border-blue-200"}`}
             value={draft}
             onChange={(e) => { setDraft(sanitizeMultiline(e.target.value, 2500)); setError(""); }}
             maxLength={2500}
-            placeholder="Write your medical report here..."
+            placeholder={t("write_report_placeholder")}
           />
-          <div className="mt-2 flex items-center justify-between text-[11px]">
+          <div className="mt-2 flex items-center justify-between text-[11px] font-sans">
             <span className="text-red-600">{error}</span>
             <span className="text-gray-500">{draft.length}/2500</span>
           </div>
-          <div className="mt-6 flex items-center justify-between gap-4">
+          <div className="mt-6 flex items-center justify-between gap-4 font-sans">
             {existingReport && (
               <button type="button" onClick={() => { setDraft(report); setMode("view"); setError(""); }}
                 className="h-9 rounded-md border border-gray-200 px-5 text-[12px] text-slate-700">
-                Cancel
+                {t("cancel")}
               </button>
             )}
             <div className="ml-auto flex gap-3">
@@ -231,12 +326,12 @@ function DoctorReportEditor({ onBack, onSubmit, initialReport = "", patientName 
                   onClick={() => downloadReport(draft || report, patientName)}
                   className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-200 px-4 text-[12px] text-slate-700 hover:bg-gray-50"
                 >
-                  <FileText className="size-3.5" /> Download
+                  <FileText className="size-3.5" /> {t("download") || "Download"}
                 </button>
               )}
               <button type="button" onClick={handleSubmit}
                 className="h-9 rounded-md bg-[#050316] px-7 text-[12px] font-medium text-white">
-                Submit to Patient
+                {t("submit_to_patient")}
               </button>
             </div>
           </div>
@@ -246,58 +341,176 @@ function DoctorReportEditor({ onBack, onSubmit, initialReport = "", patientName 
   );
 }
 
-function formatDate(raw) {
+function formatDate(raw, lang) {
   if (!raw) return "Recently";
   const d = new Date(raw);
   if (isNaN(d.getTime())) return String(raw);
-  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  return d.toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
-function ReviewedCaseCard({ item, onDetails, onViewReport }) {
+function formatDateTime(raw, lang) {
+  if (!raw) return "";
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return String(raw);
+  return d.toLocaleString(lang === "ar" ? "ar-EG" : "en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true
+  });
+}
+
+function ReviewedCaseCard({ item, onDetails, onViewReport, onChat }) {
+  const { t, lang } = useTranslation();
   const diagnosis = item.ai_diagnosis || "";
-  // The submitted report is stored in item.diagnosis or item.raw?.diagnosis from the API
-  const reportText = item.raw?.diagnosis || item.raw?.notes || "";
+  const reportText = item.raw?.report_diagnosis || item.raw?.notes || item.raw?.diagnosis || "";
+  const chatStatus = item.raw?.chat_status || "active";
+  const remainingSeconds = item.raw?.remaining_seconds ?? null;
+  const isLocked = chatStatus === "locked";
+  const hasReport = !!reportText;
+
+  const getFollowUpStatus = () => {
+    if (remainingSeconds === null) return null;
+    if (remainingSeconds === 0) return { label: t("follow_up_expired"), color: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900/50" };
+    
+    const days = Math.floor(remainingSeconds / (24 * 3600));
+    const hours = Math.floor((remainingSeconds % (24 * 3600)) / 3600);
+    const minutes = Math.floor((remainingSeconds % 3600) / 60);
+    
+    let text = "";
+    if (days > 0) {
+      text = `${days}${t("days_short")} ${hours}${t("hours_short")} ${t("remaining")}`;
+    } else if (hours > 0) {
+      text = `${hours}${t("hours_short")} ${t("remaining")}`;
+    } else {
+      text = `${minutes}${t("minutes_short")} ${t("remaining")}`;
+    }
+    
+    const isYellow = remainingSeconds < 2 * 24 * 3600; // < 2 days
+    const color = isYellow
+      ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900/50"
+      : "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-900/50";
+    
+    return { label: `${t("follow_up_active")} (${text})`, color };
+  };
+
+  const getConditionLabel = (condition) => {
+    if (!condition) return t("unknown_condition");
+    const key = `${String(condition).toLowerCase().replace(/[\s_-]+/g, "")}_title`;
+    const translated = t(key);
+    if (translated !== key) return translated;
+    const lower = String(condition).toLowerCase();
+    const prefixes = ["moles","acne","actinic_keratosis","bullous","drugeruption","eczema","lichen","lupus","rosacea","seborrh_keratoses","skincancer","tinea","unknown_normal","vasculitis","vitiligo","warts"];
+    for (const p of prefixes) {
+      if (lower.includes(p.replace(/_/g, ""))) {
+        const t2 = t(`${p}_title`);
+        if (t2 !== `${p}_title`) return t2;
+      }
+    }
+    return condition;
+  };
+
+  const followUp = getFollowUpStatus();
 
   return (
-    <article className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <article className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:bg-[#111827] dark:border-zinc-800">
       <div className="flex items-center gap-5">
         {item.patient_image
           ? <img src={item.patient_image} alt="Reviewed case" className="size-20 shrink-0 rounded-md object-cover" />
-          : <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md bg-gray-100 text-[11px] uppercase text-gray-500">No Image</div>}
+          : <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md bg-gray-100 text-[11px] uppercase text-gray-500 dark:bg-zinc-800 dark:text-zinc-400 font-sans">{t("no_image")}</div>}
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-[15px] font-medium text-slate-900">{item.patient_name || "Patient"}</h3>
-          <p className="mt-1 line-clamp-1 text-[12px] text-gray-500">{diagnosis || "Reviewed Case"}</p>
-          <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-            <span className="rounded bg-green-100 px-2 py-1 text-green-700">Reviewed</span>
-            <span className="rounded border border-gray-200 px-2 py-1 text-slate-800">{formatDate(item.submitted_on)}</span>
+          <h3 className="truncate text-[15px] font-medium text-slate-900 dark:text-white">{item.patient_name || t("patient")}</h3>
+          <p className="mt-1 line-clamp-1 text-[12px] text-gray-500 dark:text-zinc-400 font-sans">{getConditionLabel(diagnosis) || t("reviewed")}</p>
+          <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-sans">
+            <span className="rounded bg-green-100 px-2 py-1 text-green-700 dark:bg-green-950/30 dark:text-green-400">{t("reviewed")}</span>
+            <span className="rounded border border-gray-200 px-2 py-1 text-slate-800 dark:border-zinc-800 dark:text-zinc-300">{formatDate(item.submitted_on, lang)}</span>
+            
+            {/* Report Status Badge */}
+            {hasReport ? (
+              <span className="inline-flex items-center gap-1 rounded border border-green-200 bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700 dark:border-green-900/50 dark:bg-green-950/20 dark:text-green-400">
+                ✓ {t("report_submitted")}
+              </span>
+            ) : (
+              <span className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-medium ${
+                isLocked
+                  ? "border-gray-200 bg-gray-50 text-gray-500 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-400"
+                  : "border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-400"
+              }`}>
+                ⚠ {isLocked ? t("report_not_submitted") : t("report_required")}
+              </span>
+            )}
+
+            {/* Follow-up Status Badge */}
+            {followUp && (
+              <span className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-medium ${followUp.color}`}>
+                {followUp.label}
+              </span>
+            )}
           </div>
         </div>
-        <button onClick={() => onDetails(item)} className="h-8 shrink-0 rounded-md border border-gray-200 px-4 text-[12px] text-slate-800">
-          View Details
-        </button>
+        <div className="flex flex-wrap gap-2 shrink-0 items-center font-sans">
+          {onChat && (
+            <button
+              onClick={() => onChat(item)}
+              className="relative h-8 rounded-md border border-gray-300 bg-white px-4 text-[12px] font-medium text-slate-800 hover:bg-gray-50 dark:border-zinc-800 dark:text-zinc-300 dark:bg-zinc-900"
+            >
+              {isLocked ? t("read_chat") : t("follow_up_chat")}
+              {(item.unread_count > 0 || item.unreadCount > 0) && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-semibold text-white">
+                  {item.unread_count || item.unreadCount}
+                </span>
+              )}
+            </button>
+          )}
+          <button onClick={() => onDetails(item)} className="h-8 rounded-md bg-[#050316] px-4 text-[12px] font-medium text-white hover:bg-opacity-90 dark:bg-blue-600 dark:hover:bg-blue-500">
+            {t("view_details")}
+          </button>
+        </div>
       </div>
 
+      {/* Warning banner if appointment has passed and report is missing */}
+      {!hasReport && !isLocked && (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[12px] text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-400 font-sans">
+          <div className="flex gap-2 items-center">
+            <Info className="size-4 shrink-0 text-amber-600" />
+            <span>{t("report_required_passed")}</span>
+          </div>
+        </div>
+      )}
+
+      {!hasReport && isLocked && (
+        <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-[12px] text-gray-500 dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-gray-400 font-sans">
+          <div className="flex gap-2 items-center">
+            <Lock className="size-4 shrink-0 text-gray-400" />
+            <span>{t("case_closed_expired")}</span>
+          </div>
+        </div>
+      )}
+
       {/* Report preview — clickable to open full report */}
-      {reportText && (
+      {hasReport && (
         <button
           type="button"
           onClick={() => onViewReport?.(item, reportText)}
-          className="mt-4 w-full rounded-lg border border-blue-100 bg-blue-50 p-3 text-left transition hover:bg-blue-100"
+          className="mt-4 w-full rounded-lg border border-blue-100 bg-blue-50 p-3 text-left transition hover:bg-blue-100 dark:border-blue-900/50 dark:bg-zinc-950/20 font-sans"
         >
           <div className="mb-1 flex items-center gap-1.5">
-            <FileText className="size-3.5 text-blue-600" />
-            <span className="text-[11px] font-medium text-blue-700">Doctor's Report — click to view</span>
+            <FileText className="size-3.5 text-blue-600 dark:text-blue-400" />
+            <span className="text-[11px] font-medium text-blue-700 dark:text-blue-400">{t("doctors_report_click") || "Doctor's Report — click to view"}</span>
           </div>
-          <p className="line-clamp-2 text-[12px] text-slate-700">{reportText}</p>
+          <p className="line-clamp-2 text-[12px] text-slate-700 dark:text-zinc-300">{reportText}</p>
         </button>
       )}
     </article>
   );
 }
 
-function ReviewedCases({ items = [], onDetails, onViewReport }) {
+function ReviewedCases({ items = [], onDetails, onViewReport, onChat }) {
+  const { t } = useTranslation();
   if (!items.length) {
-    return <EmptyState title="No reviewed cases" message="There are no reviewed cases to display right now." />;
+    return <EmptyState title={t("no_reviewed_cases")} message={t("no_reviewed_cases_desc")} />;
   }
   return (
     <section className="mx-auto max-w-[820px] space-y-6">
@@ -307,6 +520,7 @@ function ReviewedCases({ items = [], onDetails, onViewReport }) {
           item={item}
           onDetails={onDetails}
           onViewReport={onViewReport}
+          onChat={onChat}
         />
       ))}
     </section>
@@ -316,16 +530,17 @@ function ReviewedCases({ items = [], onDetails, onViewReport }) {
 
 const initialDoctorInfo = { name: "Dr John Doe", email: "name@example.com", phone: "+1 (555) 000-0000", address: "Medical Center Downtown", consultationFee: "150" };
 
-function FieldError({ message }) { return message ? <p className="mt-1 text-[10px] font-medium text-red-600">{message}</p> : null; }
+function FieldError({ message }) { return message ? <p className="mt-1 text-[10px] font-medium text-red-600 font-sans">{message}</p> : null; }
 
 
 function DoctorInfoModal({ doctorInfo, onClose, onSave }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState(doctorInfo);
   const [errors, setErrors] = useState({});
   const updateField = (field, value) => { const clean = field === "consultationFee" ? value.replace(/[^0-9.]/g, "").slice(0, 6) : sanitizeText(value, field === "address" ? 160 : 120); setForm((prev) => ({ ...prev, [field]: clean })); setErrors((prev) => ({ ...prev, [field]: "" })); };
   const handleSubmit = (event) => { event.preventDefault(); const nextErrors = validateProfile(form, { role: "doctor" }); setErrors(nextErrors); if (Object.keys(nextErrors).length) return; onSave({ name: cleanText(form.name, 80), email: cleanText(form.email, 120).toLowerCase(), phone: cleanText(form.phone, 24), address: cleanText(form.address, 160), consultationFee: cleanText(form.consultationFee, 10) }); onClose(); };
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 px-4"><form onSubmit={handleSubmit} noValidate className="w-full max-w-[330px] rounded-xl bg-white p-5 shadow-xl"><div className="mb-4 flex items-center justify-between border-b border-gray-200 pb-3"><h3 className="flex items-center gap-2 text-[14px] font-medium text-slate-900"><Edit3 className="size-4" /> Doctor Information</h3><button type="button" onClick={onClose} className="text-blue-600"><X className="size-5" /></button></div><div className="space-y-3"><label className="block"><span className="mb-1 block text-[11px] text-slate-700">Full Name</span><input value={form.name} onChange={(e) => updateField("name", e.target.value)} className="h-8 w-full rounded-md bg-gray-100 px-3 text-[12px] text-gray-700 outline-none focus:ring-1 focus:ring-blue-400" /><FieldError message={errors.name} /></label><label className="block"><span className="mb-1 block text-[11px] text-slate-700">Email</span><input type="email" value={form.email} onChange={(e) => updateField("email", e.target.value)} className="h-8 w-full rounded-md bg-gray-100 px-3 text-[12px] text-gray-700 outline-none focus:ring-1 focus:ring-blue-400" /><FieldError message={errors.email} /></label><label className="block"><span className="mb-1 block text-[11px] text-slate-700">Phone Number</span><input type="tel" value={form.phone} onChange={(e) => updateField("phone", e.target.value)} className="h-8 w-full rounded-md bg-gray-100 px-3 text-[12px] text-gray-700 outline-none focus:ring-1 focus:ring-blue-400" /><FieldError message={errors.phone} /></label><label className="block"><span className="mb-1 block text-[11px] text-slate-700">Clinic Address</span><input value={form.address} onChange={(e) => updateField("address", e.target.value)} className="h-8 w-full rounded-md bg-gray-100 px-3 text-[12px] text-gray-700 outline-none focus:ring-1 focus:ring-blue-400" /><FieldError message={errors.address} /></label><label className="block"><span className="mb-1 block text-[11px] text-slate-700">Consultation Fee</span><div className="flex h-8 rounded-md bg-gray-100 focus-within:ring-1 focus-within:ring-blue-400"><input value={form.consultationFee} onChange={(e) => updateField("consultationFee", e.target.value)} inputMode="decimal" className="min-w-0 flex-1 rounded-md bg-gray-100 px-3 text-[12px] text-gray-700 outline-none" /><span className="flex w-9 items-center justify-center text-[12px] text-gray-500">$</span></div><FieldError message={errors.consultationFee} /></label></div><div className="mt-5 flex items-center justify-between gap-4"><button type="submit" className="h-9 rounded-md bg-blue-600 px-5 text-[12px] font-medium text-white">Save Change</button><button type="button" onClick={onClose} className="h-9 rounded-md border border-blue-500 px-7 text-[12px] font-medium text-blue-600">Cancel</button></div></form></div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 px-4 font-sans"><form onSubmit={handleSubmit} noValidate className="w-full max-w-[330px] rounded-xl bg-white p-5 shadow-xl"><div className="mb-4 flex items-center justify-between border-b border-gray-200 pb-3"><h3 className="flex items-center gap-2 text-[14px] font-medium text-slate-900"><Edit3 className="size-4" /> {t("doctor_information")}</h3><button type="button" onClick={onClose} className="text-blue-600"><X className="size-5" /></button></div><div className="space-y-3"><label className="block"><span className="mb-1 block text-[11px] text-slate-700">{t("full_name")}</span><input value={form.name} onChange={(e) => updateField("name", e.target.value)} className="h-8 w-full rounded-md bg-gray-100 px-3 text-[12px] text-gray-700 outline-none focus:ring-1 focus:ring-blue-400" /><FieldError message={errors.name} /></label><label className="block"><span className="mb-1 block text-[11px] text-slate-700">{t("email")}</span><input type="email" value={form.email} onChange={(e) => updateField("email", e.target.value)} className="h-8 w-full rounded-md bg-gray-100 px-3 text-[12px] text-gray-700 outline-none focus:ring-1 focus:ring-blue-400" /><FieldError message={errors.email} /></label><label className="block"><span className="mb-1 block text-[11px] text-slate-700">{t("phone")}</span><input type="tel" value={form.phone} onChange={(e) => updateField("phone", e.target.value)} className="h-8 w-full rounded-md bg-gray-100 px-3 text-[12px] text-gray-700 outline-none focus:ring-1 focus:ring-blue-400" /><FieldError message={errors.phone} /></label><label className="block"><span className="mb-1 block text-[11px] text-slate-700">{t("clinic_address")}</span><input value={form.address} onChange={(e) => updateField("address", e.target.value)} className="h-8 w-full rounded-md bg-gray-100 px-3 text-[12px] text-gray-700 outline-none focus:ring-1 focus:ring-blue-400" /><FieldError message={errors.address} /></label><label className="block"><span className="mb-1 block text-[11px] text-slate-700">{t("consultation_fee")}</span><div className="flex h-8 rounded-md bg-gray-100 focus-within:ring-1 focus-within:ring-blue-400"><input value={form.consultationFee} onChange={(e) => updateField("consultationFee", e.target.value)} inputMode="decimal" className="min-w-0 flex-1 rounded-md bg-gray-100 px-3 text-[12px] text-gray-700 outline-none" /><span className="flex px-1.5 items-center justify-center text-[10px] text-gray-500 font-medium whitespace-nowrap">{t("currency_unit")}</span></div><FieldError message={errors.consultationFee} /></label></div><div className="mt-5 flex items-center justify-between gap-4"><button type="submit" className="h-9 rounded-md bg-blue-600 px-5 text-[12px] font-medium text-white">{t("save_changes")}</button><button type="button" onClick={onClose} className="h-9 rounded-md border border-blue-500 px-7 text-[12px] font-medium text-blue-600">{t("cancel")}</button></div></form></div>
   );
 }function parseClinicalSummary(text, fallbackImage = "") {
   // Strip the header line the backend prepends
@@ -396,11 +611,54 @@ function DoctorInfoModal({ doctorInfo, onClose, onSave }) {
 }
 
 function ChatScreen({ onBack, onWriteReport, submittedReport = "", patientName = "Patient", patientInitial = "P", chatId = "", caseItem = null, socket }) {
+  const { t, lang } = useTranslation();
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
   const [sendErr, setSendErr] = useState("");
   const [messages, setMessages] = useState([]);
   const [liveReportText, setLiveReportText] = useState(submittedReport);
+
+  const [chatStatus, setChatStatus] = useState(caseItem?.raw?.chat_status || caseItem?.chat_status || "active");
+  const [secondsLeft, setSecondsLeft] = useState(caseItem?.raw?.remaining_seconds ?? caseItem?.remaining_seconds ?? null);
+
+  useEffect(() => {
+    setChatStatus(caseItem?.raw?.chat_status || caseItem?.chat_status || "active");
+    setSecondsLeft(caseItem?.raw?.remaining_seconds ?? caseItem?.remaining_seconds ?? null);
+  }, [chatId, caseItem]);
+
+  const isLocked = chatStatus === "locked";
+
+  useEffect(() => {
+    if (secondsLeft === null || secondsLeft <= 0 || isLocked) return;
+    const interval = setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setChatStatus("locked");
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [secondsLeft, isLocked, chatId]);
+
+  const appointmentDate = caseItem?.appointment_date || caseItem?.appointmentDate || caseItem?.raw?.appointment_date || "";
+  const apptDateObj = appointmentDate ? new Date(appointmentDate) : null;
+  const isFutureAppt = apptDateObj && new Date() < apptDateObj;
+
+  const formatCountdown = (secs) => {
+    if (secs === null || secs <= 0) return "";
+    const days = Math.floor(secs / (24 * 3600));
+    const hours = Math.floor((secs % (24 * 3600)) / 3600);
+    const minutes = Math.floor((secs % 3600) / 60);
+    
+    let parts = [];
+    if (days > 0) parts.push(`${days}${t("days_short")}`);
+    if (hours > 0 || days > 0) parts.push(`${hours}${t("hours_short")}`);
+    parts.push(`${minutes}${t("minutes_short")}`);
+    return parts.join(" ");
+  };
 
   useEffect(() => {
     setLiveReportText(submittedReport);
@@ -413,14 +671,30 @@ function ChatScreen({ onBack, onWriteReport, submittedReport = "", patientName =
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  const getConditionLabel = (condition) => {
+    if (!condition) return t("unknown_condition");
+    const key = `${String(condition).toLowerCase().replace(/[\s_-]+/g, "")}_title`;
+    const translated = t(key);
+    if (translated !== key) return translated;
+    const lower = String(condition).toLowerCase();
+    const prefixes = ["moles","acne","actinic_keratosis","bullous","drugeruption","eczema","lichen","lupus","rosacea","seborrh_keratoses","skincancer","tinea","unknown_normal","vasculitis","vitiligo","warts"];
+    for (const p of prefixes) {
+      if (lower.includes(p.replace(/_/g, ""))) {
+        const t2 = t(`${p}_title`);
+        if (t2 !== `${p}_title`) return t2;
+      }
+    }
+    return condition;
+  };
+
   // Build a synthetic pinned analysis card from an adapted analysis object
   function buildSyntheticCard(analysis) {
     const confidence = analysis.confidence != null ? `${analysis.confidence}%` : "N/A";
 
     const condition  = analysis.condition  || "N/A";
     const date       = analysis.createdAt
-      ? new Date(analysis.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-      : new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      ? new Date(analysis.createdAt).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { month: "short", day: "numeric", year: "numeric" })
+      : new Date().toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { month: "short", day: "numeric", year: "numeric" });
     const imageUrl   = analysis.imageUrl   || "";
 
     const patientGender = caseItem?.patient_gender ? (caseItem.patient_gender.charAt(0).toUpperCase() + caseItem.patient_gender.slice(1)) : "N/A";
@@ -506,6 +780,12 @@ function ChatScreen({ onBack, onWriteReport, submittedReport = "", patientName =
       setLoadErr("");
       try {
         const res = await chatApi.messages(chatId);
+        if (res && res.chat_status) {
+          setChatStatus(res.chat_status);
+        }
+        if (res && res.remaining_seconds !== undefined) {
+          setSecondsLeft(res.remaining_seconds);
+        }
         const raw = toArray(unwrapData(res)).map((m) => adaptMessage(m, "doctor"));
 
         if (!alive) return;
@@ -534,7 +814,7 @@ function ChatScreen({ onBack, onWriteReport, submittedReport = "", patientName =
           }
         }
       } catch (err) {
-        if (alive) setLoadErr(err.message || "Could not load messages.");
+        if (alive) setLoadErr(err.message || t("message_send_failed"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -587,7 +867,7 @@ function ChatScreen({ onBack, onWriteReport, submittedReport = "", patientName =
     if (!file) return;
     // Limit to 10 MB
     if (file.size > 10 * 1024 * 1024) {
-      setSendErr("File size must be under 10 MB.");
+      setSendErr(t("file_size_error"));
       return;
     }
     setSelectedFile(file);
@@ -628,7 +908,7 @@ function ChatScreen({ onBack, onWriteReport, submittedReport = "", patientName =
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     } catch (apiErr) {
-      setSendErr(apiErr.message || "Message could not be sent.");
+      setSendErr(apiErr.message || t("message_send_failed"));
     } finally {
       setSending(false);
     }
@@ -647,7 +927,7 @@ function ChatScreen({ onBack, onWriteReport, submittedReport = "", patientName =
   };
 
   return (
-    <section className="mx-auto max-w-[980px] space-y-4">
+    <section className="mx-auto max-w-[980px] space-y-4 font-sans">
       {/* Chat window */}
       <div className="flex h-[600px] flex-col rounded-xl border border-gray-200 bg-white shadow-sm">
         {/* Header */}
@@ -659,29 +939,31 @@ function ChatScreen({ onBack, onWriteReport, submittedReport = "", patientName =
             </div>
             <div>
               <h1 className="text-[14px] font-semibold text-slate-900">{patientName}</h1>
-              <p className="text-[11px] text-gray-500">patient</p>
+              <p className="text-[11px] text-gray-500 font-sans">{t("patient")}</p>
             </div>
           </button>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-[11px] font-medium text-green-700">
-              <Shield className="size-3" /> SECURE
+              <Shield className="size-3" /> {t("secure")}
             </span>
             {/* Write Report button — lives in chat header */}
-            <button
-              type="button"
-              onClick={onWriteReport}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[#050316] px-3 text-[12px] font-medium text-white hover:bg-[#111026]"
-            >
-              <FileText className="size-3.5" />
-              {submittedReport ? "Edit Report" : "Write Report"}
-            </button>
+            {(!isLocked || !!liveReportText) && (
+              <button
+                type="button"
+                onClick={onWriteReport}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[#050316] px-3 text-[12px] font-medium text-white hover:bg-[#111026] dark:bg-blue-600 dark:hover:bg-blue-500"
+              >
+                <FileText className="size-3.5" />
+                {isLocked ? t("view_report") : (liveReportText ? t("edit_report") : t("write_report"))}
+              </button>
+            )}
           </div>
         </div>
 
         {/* Security notice */}
-        <div className="flex items-center justify-center gap-2 border-b border-blue-100 bg-blue-50 px-4 py-3 text-[12px] text-gray-600 dark:bg-zinc-950/40 dark:border-zinc-800/80 dark:text-zinc-400">
+        <div className="flex items-center justify-center gap-2 border-b border-blue-100 bg-blue-50 px-4 py-3 text-[12px] text-gray-600 dark:bg-zinc-950/40 dark:border-zinc-800/80 dark:text-zinc-400 font-sans">
           <Lock className="size-3.5 text-blue-600" />
-          End-to-end encrypted conversation. Your privacy is protected.
+          {t("chat_secure_notice")}
         </div>
 
         {/* Messages */}
@@ -695,8 +977,8 @@ function ChatScreen({ onBack, onWriteReport, submittedReport = "", patientName =
             <p className="text-center text-[12px] text-red-500">{loadErr}</p>
           )}
           {!loading && !loadErr && messages.length === 0 && (
-            <p className="text-center text-[12px] text-gray-400">
-              No messages yet. Start the conversation with your patient.
+            <p className="text-center text-[12px] text-gray-400 font-sans">
+              {t("no_messages_yet_dr")}
             </p>
           )}
           {messages.map((message) => {
@@ -738,27 +1020,27 @@ function ChatScreen({ onBack, onWriteReport, submittedReport = "", patientName =
                   <div className="mb-4 flex items-center gap-2 pb-3 border-b border-blue-100 dark:border-zinc-800">
                     <FileText className="size-5 text-blue-600 dark:text-blue-400" />
                     <div>
-                      <h3 className="text-[14px] font-semibold text-slate-900 dark:text-white">Clinical Summary</h3>
-                      <p className="text-[10px] text-gray-500 dark:text-zinc-400">System-generated AI Analysis</p>
+                      <h3 className="text-[14px] font-semibold text-slate-900 dark:text-white">{t("clinical_summary")}</h3>
+                      <p className="text-[10px] text-gray-500 dark:text-zinc-400 font-sans">{t("system_generated_ai")}</p>
                     </div>
                   </div>
 
                   {/* Body Grid */}
                   <div className="grid grid-cols-2 gap-4 text-[12px] leading-relaxed text-slate-700 dark:text-zinc-300">
                     <div>
-                      <p className="text-gray-400 font-medium">Patient</p>
+                      <p className="text-gray-400 font-medium">{t("patient")}</p>
                       <p className="font-semibold text-slate-900 dark:text-white mt-0.5">{summary.patient}</p>
                     </div>
                     <div>
-                      <p className="text-gray-400 font-medium">Analysis Date</p>
+                      <p className="text-gray-400 font-medium">{t("analysis_date")}</p>
                       <p className="font-semibold text-slate-900 dark:text-white mt-0.5">{summary.date}</p>
                     </div>
                     <div>
-                      <p className="text-gray-400 font-medium">AI Prediction</p>
-                      <p className="font-semibold text-blue-600 dark:text-blue-400 mt-0.5">{summary.prediction}</p>
+                      <p className="text-gray-400 font-medium">{t("ai_prediction")}</p>
+                      <p className="font-semibold text-blue-600 dark:text-blue-400 mt-0.5">{getConditionLabel(summary.prediction)}</p>
                     </div>
                     <div>
-                      <p className="text-gray-400 font-medium">Confidence</p>
+                      <p className="text-gray-400 font-medium">{t("confidence")}</p>
                       <div className="mt-0.5 flex items-center gap-1.5">
                         <span className="font-semibold text-slate-900 dark:text-white">{summary.confidence}</span>
                         <div className="h-1.5 w-16 bg-gray-100 dark:bg-zinc-800 rounded-full overflow-hidden">
@@ -777,13 +1059,13 @@ function ChatScreen({ onBack, onWriteReport, submittedReport = "", patientName =
                       if (!confidenceLevel) return null;
                       return (
                         <div className="col-span-2">
-                          <p className="text-gray-400 font-medium mb-1">Confidence Level</p>
+                          <p className="text-gray-400 font-medium mb-1">{t("confidence_level")}</p>
                           <span className={`inline-flex px-2 py-0.5 text-[11px] font-medium border rounded-md uppercase tracking-wider ${
                             confidenceLevel === "High" ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900/50" :
                             confidenceLevel === "Medium" ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900/50" :
                             "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-900/50"
                           }`}>
-                            {confidenceLevel} Confidence
+                            {t(confidenceLevel.toLowerCase()) || confidenceLevel} {t("confidence_suffix")}
                           </span>
                         </div>
                       );
@@ -800,7 +1082,7 @@ function ChatScreen({ onBack, onWriteReport, submittedReport = "", patientName =
                         className="inline-flex w-full items-center justify-center gap-2 h-9 rounded-md bg-[#050316] text-[12px] font-medium text-white hover:bg-opacity-90 transition dark:bg-blue-600 dark:hover:bg-blue-500"
                       >
                         <FileText className="size-4" />
-                        View Skin Scan
+                        {t("view_skin_scan")}
                       </a>
                     </div>
                   )}
@@ -841,7 +1123,7 @@ function ChatScreen({ onBack, onWriteReport, submittedReport = "", patientName =
                   )}
                   {!message.text && !resolvedUrl && (
                     <div className="px-4 py-3 text-[13px] opacity-50">
-                      (empty message)
+                      {t("empty_message") || "(empty message)"}
                     </div>
                   )}
                 </div>
@@ -853,21 +1135,27 @@ function ChatScreen({ onBack, onWriteReport, submittedReport = "", patientName =
         </div>
 
         {/* Conditional message input / locked banner */}
-        {submittedReport ? (
-          <div className="border-t border-gray-200 bg-gray-50 px-8 py-5 text-center text-[12px] text-gray-500 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400 flex items-center justify-center gap-2">
+        {isLocked ? (
+          <div className="border-t border-gray-200 bg-gray-50 px-8 py-5 text-center text-[12px] text-gray-500 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400 flex items-center justify-center gap-2 font-sans">
             <Lock className="size-4 text-gray-400" />
-            <span>This chat is locked because the case has been completed.</span>
+            <span>{t("chat_locked")}</span>
           </div>
         ) : (
           <>
+            {!isLocked && secondsLeft !== null && secondsLeft > 0 && !isFutureAppt && (
+              <div className="flex items-center justify-center gap-2 border-t border-amber-100 bg-amber-50/70 px-8 py-2 text-[11px] text-amber-800 dark:bg-amber-950/30 dark:border-amber-900/50 dark:text-amber-400 font-sans">
+                <span className="inline-block size-2 rounded-full bg-amber-500 animate-pulse" />
+                <span>{t("chat_closes_in")} <strong>{formatCountdown(secondsLeft)}</strong>.</span>
+              </div>
+            )}
             {/* File preview strip */}
             {selectedFile && (
-              <div className="flex items-center gap-2 border-t border-gray-100 bg-blue-50/60 px-8 py-2 dark:bg-[#1F2937]/50 dark:border-[#374151]">
+              <div className="flex items-center gap-2 border-t border-gray-100 bg-blue-50/60 px-8 py-2 dark:bg-[#1F2937]/50 dark:border-[#374151] font-sans">
                 <Paperclip className="size-3.5 text-blue-500" />
                 <span className="min-w-0 flex-1 truncate text-[12px] text-slate-700 dark:text-gray-300">
                   {selectedFile.name}
                 </span>
-                <span className="shrink-0 text-[10px] text-gray-400">
+                <span className="shrink-0 text-[10px] text-gray-400 font-sans">
                   {(selectedFile.size / 1024).toFixed(0)} KB
                 </span>
                 <button
@@ -891,21 +1179,21 @@ function ChatScreen({ onBack, onWriteReport, submittedReport = "", patientName =
             />
 
             {/* Input */}
-            <form onSubmit={submitMessage} className="border-t border-gray-200 bg-white px-8 py-5 dark:bg-zinc-950 dark:border-zinc-800">
+            <form onSubmit={submitMessage} className="border-t border-gray-200 bg-white px-8 py-5 dark:bg-zinc-950 dark:border-zinc-800 font-sans">
               <div className="flex items-center gap-2">
                 <div className={`flex h-10 flex-1 items-center rounded-lg border bg-white px-4 dark:bg-[#1F2937] dark:border-[#374151] ${error || sendErr ? "border-red-300" : "border-gray-200"}`}>
                   <input
                     value={draft}
                     onChange={(e) => { setDraft(sanitizeText(e.target.value, 500)); setError(""); setSendErr(""); }}
                     className="min-w-0 flex-1 bg-transparent text-[13px] text-slate-700 outline-none placeholder:text-gray-400 dark:text-[#F9FAFB]"
-                    placeholder="Type your message..."
+                    placeholder={t("type_message")}
                     maxLength={500}
                   />
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="ml-2 rounded-md p-1 text-gray-400 transition hover:bg-gray-200 hover:text-slate-600 dark:hover:bg-[#374151]"
-                    title="Attach file"
+                    title={t("attach_file") || "Attach file"}
                   >
                     <Paperclip className="size-4" />
                   </button>
@@ -922,8 +1210,8 @@ function ChatScreen({ onBack, onWriteReport, submittedReport = "", patientName =
               </div>
               {error && <p className="mt-2 text-[11px] font-medium text-red-600">{error}</p>}
               {sendErr && <p className="mt-2 text-[11px] font-medium text-red-600">{sendErr}</p>}
-              <p className="mt-3 text-center text-[10px] uppercase text-gray-400">
-                Messages are monitored for quality assurance and training purposes
+              <p className="mt-3 text-center text-[10px] uppercase text-gray-400 font-sans">
+                {t("messages_monitored_disclaimer")}
               </p>
             </form>
           </>
@@ -936,7 +1224,7 @@ function ChatScreen({ onBack, onWriteReport, submittedReport = "", patientName =
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <FileText className="size-4 text-green-700 dark:text-green-400" />
-              <span className="text-[13px] font-medium text-green-900 dark:text-green-300">Report Submitted</span>
+              <span className="text-[13px] font-medium text-green-900 dark:text-green-300">{t("report_submitted")}</span>
             </div>
             <div className="flex gap-2">
               <button
@@ -944,14 +1232,14 @@ function ChatScreen({ onBack, onWriteReport, submittedReport = "", patientName =
                 onClick={() => downloadReport(liveReportText, patientName)}
                 className="inline-flex h-8 items-center gap-1.5 rounded-md border border-green-300 bg-white px-3 text-[12px] text-green-800 hover:bg-green-100 dark:border-green-900/50 dark:bg-green-950/30 dark:text-green-400 dark:hover:bg-green-900/50"
               >
-                <FileText className="size-3.5" /> Download Report
+                <FileText className="size-3.5" /> {t("download_report")}
               </button>
               <button
                 type="button"
                 onClick={onWriteReport}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[#050316] px-3 text-[12px] text-white hover:bg-[#111026] dark:bg-blue-600 dark:hover:bg-blue-500"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[#050316] text-white px-3 text-[12px] font-medium hover:bg-[#111026] dark:bg-blue-600 dark:hover:bg-blue-500"
               >
-                Edit Report
+                {isLocked ? t("view_report") : t("edit_report")}
               </button>
             </div>
           </div>
@@ -963,6 +1251,7 @@ function ChatScreen({ onBack, onWriteReport, submittedReport = "", patientName =
 }
 
 export default function DoctorTabsSection({ onAnalyticsChange, onAnalyticsData }) {
+  const { t, lang } = useTranslation();
   const [activeTab, setActiveTab] = useState("pending-cases");
   const [screen, setScreen] = useState("tabs");
   const [pendingCases, setPendingCases] = useState([]);
@@ -1015,12 +1304,8 @@ export default function DoctorTabsSection({ onAnalyticsChange, onAnalyticsData }
       if (reviewedResponse.status === "fulfilled") {
         const list = toArray(unwrapData(reviewedResponse.value)).map((item) => adaptDoctorCase(item));
         setReviewedCases(list);
-        const today = new Date().toDateString();
-        const reviewedToday = list.filter((item) => {
-          const d = item.submitted_on ? new Date(item.submitted_on) : null;
-          return d && d.toDateString() === today;
-        }).length;
-        onAnalyticsData?.((prev) => ({ ...prev, reviewedTodayCount: reviewedToday }));
+        const finishedCases = list.length;
+        onAnalyticsData?.((prev) => ({ ...prev, reviewedTodayCount: finishedCases }));
       }
       // Count distinct patients across pending + reviewed cases
       if (pendingResponse.status === "fulfilled" || reviewedResponse.status === "fulfilled") {
@@ -1157,11 +1442,13 @@ export default function DoctorTabsSection({ onAnalyticsChange, onAnalyticsData }
     try {
       await profileApi.update({
         name: nextInfo.name,
+        email: nextInfo.email,
         phone: nextInfo.phone,
         clinic_address: nextInfo.address,
         consultation_fee: Number(nextInfo.consultationFee),
       });
       setServerMessage("Doctor profile updated successfully.");
+      setTimeout(() => setServerMessage(""), 4000);
     } catch (error) {
       setServerError(error.message || "Profile could not be updated on the API.");
     }
@@ -1247,6 +1534,7 @@ export default function DoctorTabsSection({ onAnalyticsChange, onAnalyticsData }
           diagnosis: cleanReport,
         });
         setServerMessage("Report updated successfully.");
+        setTimeout(() => setServerMessage(""), 4000);
         setScreen(reportBackTarget);
       } else {
         await doctorApi.reviewCase({
@@ -1254,6 +1542,7 @@ export default function DoctorTabsSection({ onAnalyticsChange, onAnalyticsData }
           diagnosis: cleanReport,
         });
         setServerMessage("Report submitted successfully.");
+        setTimeout(() => setServerMessage(""), 4000);
         setScreen(reportBackTarget); // go back sequentially to where we came from (chat, review, or tabs)
       }
 
@@ -1363,19 +1652,20 @@ export default function DoctorTabsSection({ onAnalyticsChange, onAnalyticsData }
   if (screen === "report") {
     return (
       <>
-        {serverError && <div className="mx-auto mb-4 max-w-[720px] rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-700">{serverError}</div>}
-        {isSubmittingReport && <div className="mx-auto mb-4 max-w-[720px] rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-[12px] text-blue-700">Submitting report...</div>}
+        {serverError && <div className="mx-auto mb-4 max-w-[720px] rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-700 font-sans">{serverError}</div>}
+        {isSubmittingReport && <div className="mx-auto mb-4 max-w-[720px] rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-[12px] text-blue-700 font-sans">{t("submitting_report_dots")}</div>}
         <DoctorReportEditor
           initialReport={submittedReport}
           existingReport={submittedReport}
           patientName={selectedCase?.patient_name || ""}
           onBack={() => setScreen(reportBackTarget)}
           backLabel={
-            reportBackTarget === "review" ? "Back to Case Review" :
-            reportBackTarget === "tabs" ? "Back to List" :
-            "Back to Chat"
+            reportBackTarget === "review" ? (t("back_to_review") || "Back to Case Review") :
+            reportBackTarget === "tabs" ? (t("back_to_list") || "Back to List") :
+            (t("back_to_chat") || "Back to Chat")
           }
           onSubmit={submitReport}
+          readOnly={selectedCase?.raw?.chat_status === "locked" || selectedCase?.chat_status === "locked" || selectedCase?.status === "locked"}
         />
       </>
     );
@@ -1383,10 +1673,14 @@ export default function DoctorTabsSection({ onAnalyticsChange, onAnalyticsData }
 
   return (
     <>
-      {serverMessage && <div className="mx-auto mb-4 max-w-[820px] rounded-md border border-green-200 bg-green-50 px-3 py-2 text-[12px] text-green-700">{serverMessage}</div>}
-      {serverError && <div className="mx-auto mb-4 max-w-[820px] rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-700">{serverError}</div>}
+      {serverMessage && <div className="mx-auto mb-4 max-w-[820px] rounded-md border border-green-200 bg-green-50 px-3 py-2 text-[12px] text-green-700 font-sans">{serverMessage}</div>}
+      {serverError && <div className="mx-auto mb-4 max-w-[820px] rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-700 font-sans">{serverError}</div>}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-2">
-        <DashboardTabs pendingCount={pendingCases.length} />
+        <DashboardTabs 
+          pendingCount={pendingCases.length} 
+          pendingUnread={pendingCases.reduce((sum, item) => sum + (item.unread_count || item.unreadCount || 0), 0)}
+          reviewedUnread={reviewedCases.reduce((sum, item) => sum + (item.unread_count || item.unreadCount || 0), 0)}
+        />
 
         <TabsContent value="pending-cases" className="mt-6 space-y-4">
           {pendingCases.length ? pendingCases.map((item) => (
@@ -1396,7 +1690,7 @@ export default function DoctorTabsSection({ onAnalyticsChange, onAnalyticsData }
               onReview={() => { setSelectedCase(item); setSubmittedReport(""); setScreen("review"); }} 
               onChat={() => handleStartChat(item)}
             />
-          )) : <EmptyState title="No pending cases" message="There are no pending cases assigned to you at the moment." />}
+          )) : <EmptyState title={t("no_pending_cases")} message={t("no_pending_cases_desc")} />}
         </TabsContent>
 
         <TabsContent value="reviewed-cases" className="mt-6">
@@ -1414,6 +1708,7 @@ export default function DoctorTabsSection({ onAnalyticsChange, onAnalyticsData }
               setReportBackTarget("tabs");
               setScreen("report");
             }}
+            onChat={(item) => handleStartChat(item, "tabs")}
           />
         </TabsContent>
 

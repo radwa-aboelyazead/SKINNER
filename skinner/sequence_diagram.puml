@@ -1,0 +1,81 @@
+@startuml Medical_Chatbot_Sequence_Flow
+
+skinparam Style strictuml
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+skinparam ActorPadding 10
+
+actor "Patient" as Patient
+participant "Frontend" as Frontend
+participant "Backend" as Backend
+participant "PaymentGateway" as PaymentGateway
+participant "SocketIO" as SocketIO
+participant "DB" as DB
+participant "AI_Service" as AI_Service
+
+== 1. Image Analysis ==
+Patient -> Frontend: UploadImage(img)
+activate Frontend
+Frontend -> Backend: AnalyzeImage(img)
+activate Backend
+Backend -> AI_Service: PredictDisease(img)
+activate AI_Service
+AI_Service --> Backend: Prediction(disease, score)
+deactivate AI_Service
+Backend -> DB: SaveResult(disease) [Reference DB]
+activate DB
+DB --> Backend: Success
+deactivate DB
+Backend --> Frontend: AnalysisResult(disease)
+deactivate Backend
+Frontend --> Patient: ShowResult(disease)
+deactivate Frontend
+
+== 2. Booking & Confirmation ==
+Patient -> Frontend: RequestBooking(doctor, date, analysis)
+activate Frontend
+Frontend -> Backend: BookAppointment(doctor, date, analysis)
+activate Backend
+Backend -> DB: CheckAvailability(doctor, date) [Appt DB]
+activate DB
+DB --> Backend: ValidationResult (OK / Conflict)
+deactivate DB
+
+alt Conflict Detected
+    Backend --> Frontend: Error (Booked)
+    Frontend --> Patient: ShowError(booked)
+else Availability OK
+    Backend -> DB: SaveAppointment(pending) [Appt DB]
+    activate DB
+    DB --> Backend: Success
+    deactivate DB
+    Backend --> Frontend: BookingConfirmation(apptId)
+    deactivate Backend
+    
+    Patient -> Frontend: PayBooking(apptId, card)
+    activate Frontend
+    Frontend -> Backend: ProcessPayment(apptId, card)
+    activate Backend
+    Backend -> PaymentGateway: ChargeCard(amount, card)
+    activate PaymentGateway
+    PaymentGateway --> Backend: Success(txnRef)
+    deactivate PaymentGateway
+    Backend -> DB: SavePayment(paid) [Payment DB]
+    activate DB
+    DB --> Backend: Success
+    deactivate DB
+    Backend -> DB: ActivateChat(apptId) [Chat DB]
+    activate DB
+    DB --> Backend: Success
+    deactivate DB
+    Backend --> Frontend: ChatSession(chatId)
+    deactivate Backend
+    Frontend -> SocketIO: EstablishConnection(chatId)
+    activate SocketIO
+    SocketIO --> Frontend: JoinedChat(chatId)
+    deactivate SocketIO
+    Frontend --> Patient: OpenChat(chatId)
+    deactivate Frontend
+end
+
+@enduml

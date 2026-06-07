@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Download, Info, Upload, X } from "lucide-react";
@@ -14,6 +12,7 @@ import PasswordInput from "../ui/PasswordInput";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { authApi } from "@/services/skinnerApi";
 import { cleanText, digitsOnly, isValidEmail, isValidPhone, sanitizeText, getBirthDateFromNationalId, calculateAge } from "@/lib/formValidation";
+import { useTranslation } from "@/context/LanguageContext";
 
 const defaults = {
   patient: { name: "", email: "", phone: "", age: "", gender: "", address: "", password: "", confirmPassword: "" },
@@ -22,10 +21,24 @@ const defaults = {
 };
 
 function FieldError({ message }) { return message ? <p className="mt-1 text-[10px] font-medium text-red-600">{message}</p> : null; }
-function InfoBox({ children, tone = "blue" }) { return <div className={`flex items-start gap-2 rounded-md border p-3 text-[11px] ${tone === "amber" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-blue-200 bg-blue-50 text-blue-700"}`}><Info className="mt-0.5 h-4 w-4 shrink-0"/><div>{children}</div></div>; }
+function InfoBox({ children, tone = "blue" }) {
+  return (
+    <div
+      className={`flex items-start gap-2 rounded-md border p-3 text-[11px] ${
+        tone === "amber"
+          ? "border-[#fde68a] bg-[#fefbeb] text-[#b45309] dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
+          : "border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8] dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300"
+      }`}
+    >
+      <Info className="mt-0.5 h-4 w-4 shrink-0" />
+      <div>{children}</div>
+    </div>
+  );
+}
 
 export default function RegisterCard() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [role, setRole] = useState("patient");
   const [forms, setForms] = useState(defaults);
   const [errors, setErrors] = useState({});
@@ -134,5 +147,228 @@ export default function RegisterCard() {
     finally { setIsSubmitting(false); }
   };
 
-  return <Card className="w-full max-w-sm rounded-lg border border-gray-200 shadow-sm"><CardContent><h2 className="text-[16px] font-semibold text-gray-900">Create an Account</h2><p className="mt-1 text-[12px] text-gray-500">Register as a patient, healthcare provider, or admin</p><Tabs value={role} className="mt-5" onValueChange={(v)=>{setRole(v);setErrors({});setServerError("");setServerMessage("");}}><TabsList className="grid h-10 w-full grid-cols-3 bg-[#ECECF0] p-1"><TabsTrigger value="patient" className="text-[12px] data-[state=active]:bg-white data-[state=active]:shadow-sm">Patient</TabsTrigger><TabsTrigger value="doctor" className="text-[12px] data-[state=active]:bg-white data-[state=active]:shadow-sm">Doctor</TabsTrigger><TabsTrigger value="admin" className="text-[12px] data-[state=active]:bg-white data-[state=active]:shadow-sm">Admin</TabsTrigger></TabsList><form onSubmit={submit} className="mt-5 space-y-4"><TabsContent value="patient" className="space-y-4"><div className="grid grid-cols-2 gap-3"><label><Label className="text-[12px]">Full Name</Label><Input value={current.name} onChange={update("patient","name")} className="h-9 text-[12px]" placeholder="John Doe"/><FieldError message={errors.name}/></label><label><Label className="text-[12px]">Email</Label><Input value={current.email} onChange={update("patient","email")} className="h-9 text-[12px]" placeholder="name@example.com"/><FieldError message={errors.email}/></label></div><div className="grid grid-cols-2 gap-3"><label><Label className="text-[12px]">Phone</Label><Input value={current.phone} onChange={update("patient","phone")} className="h-9 text-[12px]" placeholder="01000000000"/><FieldError message={errors.phone}/></label><label><Label className="text-[12px]">Age</Label><Input value={current.age} onChange={update("patient","age")} className="h-9 text-[12px]" placeholder="25"/><FieldError message={errors.age}/></label></div><div className="grid grid-cols-2 gap-3"><label><Label className="text-[12px]">Gender</Label><Select value={current.gender} onValueChange={update("patient","gender")}><SelectTrigger className="h-9 text-xs w-full"><SelectValue placeholder="Gender"/></SelectTrigger><SelectContent><SelectItem value="male">Male</SelectItem><SelectItem value="female">Female</SelectItem><SelectItem value="other">Other</SelectItem></SelectContent></Select><FieldError message={errors.gender}/></label><label><Label className="text-[12px]">Address</Label><Input value={current.address} onChange={update("patient","address")} className="h-9 text-[12px]" placeholder="Alexandria"/><FieldError message={errors.address}/></label></div><InfoBox>By registering, you agree to our Terms of Service and Privacy Policy.</InfoBox></TabsContent><TabsContent value="doctor" className="space-y-4"><div className="grid grid-cols-2 gap-3"><label><Label className="text-[12px]">Full Name</Label><Input value={current.name} onChange={update("doctor","name")} className="h-9 text-[12px]" placeholder="Dr. Jane Smith"/><FieldError message={errors.name}/></label><label><Label className="text-[12px]">Email</Label><Input value={current.email} onChange={update("doctor","email")} className="h-9 text-[12px]" placeholder="doctor@hospital.com"/><FieldError message={errors.email}/></label></div><div className="grid grid-cols-2 gap-3"><label><Label className="text-[12px]">Phone</Label><Input value={current.phone} onChange={update("doctor","phone")} className="h-9 text-[12px]" placeholder="01012345678"/><FieldError message={errors.phone}/></label><label><Label className="text-[12px]">Gender</Label><Select value={current.gender} onValueChange={update("doctor","gender")}><SelectTrigger className="h-9 text-xs w-full"><SelectValue placeholder="Gender"/></SelectTrigger><SelectContent><SelectItem value="male">Male</SelectItem><SelectItem value="female">Female</SelectItem><SelectItem value="other">Other</SelectItem></SelectContent></Select><FieldError message={errors.gender}/></label></div><div className="grid grid-cols-2 gap-3"><label><Label className="text-[12px]">National ID</Label><Input value={current.national_id} onChange={update("doctor","national_id")} className="h-9 text-[12px]" placeholder="29801011234567"/><FieldError message={errors.national_id}/></label><label><Label className="text-[12px]">Age</Label><Input value={current.age} onChange={update("doctor","age")} className="h-9 text-[12px]" placeholder="35"/><FieldError message={errors.age}/></label></div><div className="grid grid-cols-2 gap-3"><label><Label className="text-[12px]">Experience</Label><Input value={current.year_of_experience} onChange={update("doctor","year_of_experience")} className="h-9 text-[12px]" placeholder="7"/><FieldError message={errors.year_of_experience}/></label><label><Label className="text-[12px]">Fee</Label><Input value={current.consultation_fee} onChange={update("doctor","consultation_fee")} className="h-9 text-[12px]" placeholder="150"/><FieldError message={errors.consultation_fee}/></label></div><div className="grid grid-cols-2 gap-3"><label><Label className="text-[12px]">Specialization</Label><Select value={current.specialization} onValueChange={update("doctor","specialization")}><SelectTrigger className="h-9 text-xs w-full"><SelectValue placeholder="Specialization"/></SelectTrigger><SelectContent><SelectItem value="Dermatology">Dermatology</SelectItem><SelectItem value="Pediatric Dermatology">Pediatric Dermatology</SelectItem><SelectItem value="Cosmetic Surgery">Cosmetic Surgery</SelectItem></SelectContent></Select></label><label><Label className="text-[12px]">Clinic Address</Label><Input value={current.clinic_address} onChange={update("doctor","clinic_address")} className="h-9 text-[12px]" placeholder="15 Nile St, Cairo"/><FieldError message={errors.clinic_address}/></label></div><div><Label className="text-[12px]">Upload Syndicate Card</Label><Dialog><DialogTrigger asChild><button type="button" className="relative h-9 w-full rounded-md border border-gray-200 bg-white px-3 text-left text-[12px] text-gray-500"><span>{selectedFile?selectedFile.name:"Upload your ID"}</span><Download className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"/></button></DialogTrigger><DialogContent className="sm:max-w-lg"><div className="flex flex-col gap-5"><div className="text-center"><h2 className="text-xl font-bold text-[#193CB8]">Upload Doctor ID</h2><p className="text-xs text-gray-500">Supported formats: JPG, PNG, PDF</p></div><div className="relative flex min-h-56 flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-blue-50/40 p-6 text-center transition hover:border-[#193CB8]" data-dragging={isDragging||undefined} onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop}><input {...getInputProps()} className="sr-only"/><div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm"><Upload className="h-5 w-5 text-[#193CB8]"/></div><p className="text-sm font-medium text-[#193CB8]">Drag files here or click to upload</p><button type="button" onClick={openFileDialog} className="mt-4 rounded-md border border-[#193CB8] px-4 py-1.5 text-xs text-[#193CB8] hover:bg-[#193CB8] hover:text-white">Select File</button></div>{files[0]?.preview&&selectedFile?.type?.startsWith("image/")&&<div className="relative w-fit"><img src={files[0].preview} alt="preview" className="h-28 w-44 rounded-md object-cover shadow-md"/><button type="button" onClick={()=>removeFile(files[0].id)} className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow hover:bg-gray-100"><X className="h-3 w-3 text-gray-600"/></button></div>}{(fileErrors?.length>0||errors.syndicate_card_image)&&<p className="text-center text-xs text-red-500">{fileErrors[0]||errors.syndicate_card_image}</p>}</div></DialogContent></Dialog><FieldError message={errors.syndicate_card_image}/></div><InfoBox>Your registration will be reviewed by our admin team.</InfoBox></TabsContent><TabsContent value="admin" className="space-y-4"><InfoBox tone="amber"><b>Administrator Registration:</b><br/>Admin accounts require authorization and invite code.</InfoBox><label className="block"><Label className="text-[12px]">Email</Label><Input value={current.email} onChange={update("admin","email")} className="h-9 text-[12px]" placeholder="admin@test.com"/><FieldError message={errors.email}/></label><label className="block"><Label className="text-[12px]">Invite Code</Label><Input value={current.invite_code} onChange={update("admin","invite_code")} className="h-9 text-[12px]" placeholder="ADM-82HF-9S1K"/><FieldError message={errors.invite_code}/></label></TabsContent><div className="space-y-1.5"><Label className="text-[12px]">Password</Label><PasswordInput value={current.password} onChange={update(role,"password")} className="text-xs"/><FieldError message={errors.password}/></div><div className="space-y-1.5"><Label className="text-[12px]">Confirm Password</Label><PasswordInput value={current.confirmPassword} onChange={update(role,"confirmPassword")} className="text-xs"/><FieldError message={errors.confirmPassword}/></div>{serverError&&<div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700">{serverError}</div>}{serverMessage&&<div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-[11px] text-green-700">{serverMessage}</div>}<Button type="submit" disabled={isSubmitting} className="h-10 w-full bg-[#0B0B1F] text-[12px] hover:bg-[#16162b] disabled:opacity-60">{isSubmitting?"Submitting...":`Register as ${role.charAt(0).toUpperCase()+role.slice(1)}`}</Button></form></Tabs><div className="mt-4 text-center text-[11px] text-gray-500">Already have an account? <Link to="/sign-in" className="text-blue-600 hover:underline">Sign in here</Link></div></CardContent></Card>;
+  const getSubmitButtonText = () => {
+    if (isSubmitting) return t("sending");
+    if (role === "patient") return t("register_as_patient");
+    if (role === "doctor") return t("register_as_doctor");
+    return t("register_as_admin");
+  };
+
+  return (
+    <Card className="w-full max-w-sm rounded-lg border border-gray-200 shadow-sm dark:bg-zinc-900 dark:border-zinc-800">
+      <CardContent>
+        <h2 className="text-[16px] font-semibold text-gray-900 dark:text-white">{t("register")}</h2>
+        <p className="mt-1 text-[12px] text-gray-500 dark:text-zinc-400">{t("register_desc")}</p>
+        <Tabs value={role} className="mt-5" onValueChange={(v)=>{setRole(v);setErrors({});setServerError("");setServerMessage("");}}>
+          <TabsList className="grid h-10 w-full grid-cols-3 bg-[#ECECF0] p-1 dark:bg-zinc-800">
+            <TabsTrigger value="patient" className="text-[12px] data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-zinc-950 dark:text-zinc-400 dark:data-[state=active]:text-white">{t("patient")}</TabsTrigger>
+            <TabsTrigger value="doctor" className="text-[12px] data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-zinc-950 dark:text-zinc-400 dark:data-[state=active]:text-white">{t("doctor")}</TabsTrigger>
+            <TabsTrigger value="admin" className="text-[12px] data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-zinc-950 dark:text-zinc-400 dark:data-[state=active]:text-white">Admin</TabsTrigger>
+          </TabsList>
+          <form onSubmit={submit} className="mt-5 space-y-4">
+            <TabsContent value="patient" className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <label>
+                  <Label className="text-[12px] dark:text-zinc-300">{t("full_name")}</Label>
+                  <Input value={current.name} onChange={update("patient","name")} className="h-9 text-[12px] dark:border-zinc-800" placeholder="John Doe"/>
+                  <FieldError message={errors.name}/>
+                </label>
+                <label>
+                  <Label className="text-[12px] dark:text-zinc-300">{t("email")}</Label>
+                  <Input value={current.email} onChange={update("patient","email")} className="h-9 text-[12px] dark:border-zinc-800" placeholder="name@example.com"/>
+                  <FieldError message={errors.email}/>
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label>
+                  <Label className="text-[12px] dark:text-zinc-300">{t("phone")}</Label>
+                  <Input value={current.phone} onChange={update("patient","phone")} className="h-9 text-[12px] dark:border-zinc-800" placeholder="01000000000"/>
+                  <FieldError message={errors.phone}/>
+                </label>
+                <label>
+                  <Label className="text-[12px] dark:text-zinc-300">{t("age")}</Label>
+                  <Input value={current.age} onChange={update("patient","age")} className="h-9 text-[12px] dark:border-zinc-800" placeholder="25"/>
+                  <FieldError message={errors.age}/>
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label>
+                  <Label className="text-[12px] dark:text-zinc-300">{t("gender")}</Label>
+                  <Select value={current.gender} onValueChange={update("patient","gender")}>
+                    <SelectTrigger className="h-9 text-xs w-full dark:border-zinc-800">
+                      <SelectValue placeholder={t("gender")}/>
+                    </SelectTrigger>
+                    <SelectContent className="dark:bg-zinc-900 dark:border-zinc-800">
+                      <SelectItem value="male">{t("male")}</SelectItem>
+                      <SelectItem value="female">{t("female")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FieldError message={errors.gender}/>
+                </label>
+                <label>
+                  <Label className="text-[12px] dark:text-zinc-300">{t("address")}</Label>
+                  <Input value={current.address} onChange={update("patient","address")} className="h-9 text-[12px] dark:border-zinc-800" placeholder="Alexandria"/>
+                  <FieldError message={errors.address}/>
+                </label>
+              </div>
+              <InfoBox>{t("terms_policy_agreement")}</InfoBox>
+            </TabsContent>
+            
+            <TabsContent value="doctor" className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <label>
+                  <Label className="text-[12px] dark:text-zinc-300">{t("full_name")}</Label>
+                  <Input value={current.name} onChange={update("doctor","name")} className="h-9 text-[12px] dark:border-zinc-800" placeholder="Dr. Jane Smith"/>
+                  <FieldError message={errors.name}/>
+                </label>
+                <label>
+                  <Label className="text-[12px] dark:text-zinc-300">{t("email")}</Label>
+                  <Input value={current.email} onChange={update("doctor","email")} className="h-9 text-[12px] dark:border-zinc-800" placeholder="doctor@hospital.com"/>
+                  <FieldError message={errors.email}/>
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label>
+                  <Label className="text-[12px] dark:text-zinc-300">{t("phone")}</Label>
+                  <Input value={current.phone} onChange={update("doctor","phone")} className="h-9 text-[12px] dark:border-zinc-800" placeholder="01012345678"/>
+                  <FieldError message={errors.phone}/>
+                </label>
+                <label>
+                  <Label className="text-[12px] dark:text-zinc-300">{t("gender")}</Label>
+                  <Select value={current.gender} onValueChange={update("doctor","gender")}>
+                    <SelectTrigger className="h-9 text-xs w-full dark:border-zinc-800">
+                      <SelectValue placeholder={t("gender")}/>
+                    </SelectTrigger>
+                    <SelectContent className="dark:bg-zinc-900 dark:border-zinc-800">
+                      <SelectItem value="male">{t("male")}</SelectItem>
+                      <SelectItem value="female">{t("female")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FieldError message={errors.gender}/>
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label>
+                  <Label className="text-[12px] dark:text-zinc-300">{t("national_id")}</Label>
+                  <Input value={current.national_id} onChange={update("doctor","national_id")} className="h-9 text-[12px] dark:border-zinc-800" placeholder="29801011234567"/>
+                  <FieldError message={errors.national_id}/>
+                </label>
+                <label>
+                  <Label className="text-[12px] dark:text-zinc-300">{t("age")}</Label>
+                  <Input value={current.age} onChange={update("doctor","age")} className="h-9 text-[12px] dark:border-zinc-800" placeholder="35"/>
+                  <FieldError message={errors.age}/>
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label>
+                  <Label className="text-[12px] dark:text-zinc-300">{t("experience")}</Label>
+                  <Input value={current.year_of_experience} onChange={update("doctor","year_of_experience")} className="h-9 text-[12px] dark:border-zinc-800" placeholder="7"/>
+                  <FieldError message={errors.year_of_experience}/>
+                </label>
+                <label>
+                  <Label className="text-[12px] dark:text-zinc-300">{t("consultation_fee")}</Label>
+                  <Input value={current.consultation_fee} onChange={update("doctor","consultation_fee")} className="h-9 text-[12px] dark:border-zinc-800" placeholder="150"/>
+                  <FieldError message={errors.consultation_fee}/>
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label>
+                  <Label className="text-[12px] dark:text-zinc-300">{t("specialization")}</Label>
+                  <Select value={current.specialization} onValueChange={update("doctor","specialization")}>
+                    <SelectTrigger className="h-9 text-xs w-full dark:border-zinc-800">
+                      <SelectValue placeholder={t("specialization")}/>
+                    </SelectTrigger>
+                    <SelectContent className="dark:bg-zinc-900 dark:border-zinc-800">
+                      <SelectItem value="Dermatology">{t("specialty_dermatology")}</SelectItem>
+                      <SelectItem value="Pediatric Dermatology">{t("specialty_pediatric_dermatology")}</SelectItem>
+                      <SelectItem value="Cosmetic Surgery">{t("specialty_cosmetic_surgery")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </label>
+                <label>
+                  <Label className="text-[12px] dark:text-zinc-300">{t("clinic_address")}</Label>
+                  <Input value={current.clinic_address} onChange={update("doctor","clinic_address")} className="h-9 text-[12px] dark:border-zinc-800" placeholder="15 Nile St, Cairo"/>
+                  <FieldError message={errors.clinic_address}/>
+                </label>
+              </div>
+              <div>
+                <Label className="text-[12px] dark:text-zinc-300">{t("syndicate_card")}</Label>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button type="button" className="relative h-9 w-full rounded-md border border-gray-200 bg-white px-3 text-left text-[12px] text-gray-500 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400">
+                      <span>{selectedFile?selectedFile.name:t("upload_id")}</span>
+                      <Download className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"/>
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-lg dark:bg-zinc-900 dark:border-zinc-800">
+                    <div className="flex flex-col gap-5">
+                      <div className="text-center">
+                        <h2 className="text-xl font-bold text-[#193CB8] dark:text-blue-400">{t("upload_id")}</h2>
+                        <p className="text-xs text-gray-500 dark:text-zinc-400">Supported formats: JPG, PNG, PDF</p>
+                      </div>
+                      <div className="relative flex min-h-56 flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-blue-50/40 p-6 text-center transition hover:border-[#193CB8]" data-dragging={isDragging||undefined} onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop}>
+                        <input {...getInputProps()} className="sr-only"/>
+                        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm dark:bg-zinc-800">
+                          <Upload className="h-5 w-5 text-[#193CB8] dark:text-blue-400"/>
+                        </div>
+                        <p className="text-sm font-medium text-[#193CB8] dark:text-blue-400">Drag files here or click to upload</p>
+                        <button type="button" onClick={openFileDialog} className="mt-4 rounded-md border border-[#193CB8] px-4 py-1.5 text-xs text-[#193CB8] hover:bg-[#193CB8] hover:text-white dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-400 dark:hover:text-white">Select File</button>
+                      </div>
+                      {files[0]?.preview&&selectedFile?.type?.startsWith("image/")&& (
+                        <div className="relative w-fit">
+                          <img src={files[0].preview} alt="preview" className="h-28 w-44 rounded-md object-cover shadow-md"/>
+                          <button type="button" onClick={()=>removeFile(files[0].id)} className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow hover:bg-gray-100 dark:bg-zinc-800"><X className="h-3 w-3 text-gray-600 dark:text-zinc-400"/></button>
+                        </div>
+                      )}
+                      {(fileErrors?.length>0||errors.syndicate_card_image)&&<p className="text-center text-xs text-red-500">{fileErrors[0]||errors.syndicate_card_image}</p>}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                <FieldError message={errors.syndicate_card_image}/>
+              </div>
+              <InfoBox>{t("doctor_review_agreement")}</InfoBox>
+            </TabsContent>
+            
+            <TabsContent value="admin" className="space-y-4">
+              <InfoBox tone="amber">
+                {t("admin_invite_warning")}
+              </InfoBox>
+              <label className="block">
+                <Label className="text-[12px] dark:text-zinc-300">{t("email")}</Label>
+                <Input value={current.email} onChange={update("admin","email")} className="h-9 text-[12px] dark:border-zinc-800" placeholder="admin@test.com"/>
+                <FieldError message={errors.email}/>
+              </label>
+              <label className="block">
+                <Label className="text-[12px] dark:text-zinc-300">{t("invite_code")}</Label>
+                <Input value={current.invite_code} onChange={update("admin","invite_code")} className="h-9 text-[12px] dark:border-zinc-800" placeholder="ADM-82HF-9S1K"/>
+                <FieldError message={errors.invite_code}/>
+              </label>
+            </TabsContent>
+            
+            <div className="space-y-1.5">
+              <Label className="text-[12px] dark:text-zinc-300">{t("password")}</Label>
+              <PasswordInput value={current.password} onChange={update(role,"password")} className="text-xs dark:border-zinc-800"/>
+              <FieldError message={errors.password}/>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px] dark:text-zinc-300">{t("confirm_password")}</Label>
+              <PasswordInput value={current.confirmPassword} onChange={update(role,"confirmPassword")} className="text-xs dark:border-zinc-800"/>
+              <FieldError message={errors.confirmPassword}/>
+            </div>
+            
+            {serverError&&<div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700 dark:bg-red-950/20 dark:border-red-900/30">{serverError}</div>}
+            {serverMessage&&<div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-[11px] text-green-700 dark:bg-green-950/20 dark:border-green-900/30">{serverMessage}</div>}
+            
+            <Button type="submit" disabled={isSubmitting} className="h-10 w-full bg-[#0B0B1F] text-[12px] hover:bg-[#16162b] disabled:opacity-60 dark:bg-blue-600 dark:hover:bg-blue-500">
+              {getSubmitButtonText()}
+            </Button>
+          </form>
+        </Tabs>
+        <div className="mt-4 text-center text-[11px] text-gray-500 dark:text-zinc-400">
+          {t("already_have_account")}{" "}
+          <Link to="/sign-in" className="text-blue-600 hover:underline dark:text-blue-400">{t("sign_in_here")}</Link>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }

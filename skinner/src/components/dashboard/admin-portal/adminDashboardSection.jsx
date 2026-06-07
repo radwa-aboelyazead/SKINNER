@@ -3,7 +3,7 @@ import AdminTabsSection from "./adminTabsSection";
 import { AnalyticsCards } from "./analytics-cards";
 import { adminApi, unwrapData } from "@/services/skinnerApi";
 
-export default function AdminDashboardSection() {
+export default function AdminDashboardSection({ adminRole = "admin" }) {
   const [stats, setStats] = useState({
     totalUsers:      0,
     activeDoctors:   0,
@@ -44,7 +44,7 @@ export default function AdminDashboardSection() {
           />
         </div>
         <div>
-          <AdminTabsSection onRefreshStats={loadStats} />
+          <AdminTabsSection onRefreshStats={loadStats} adminRole={adminRole} />
         </div>
       </div>
     </section>

@@ -1,0 +1,81 @@
+@startuml System_Architecture
+
+skinparam Style strictuml
+skinparam BoxPadding 15
+skinparam ComponentPadding 10
+skinparam PackagePadding 15
+
+package "Patient Interface (Patient Portal)" {
+    [Chatbot UI] as Chatbot
+    [Image Scanner] as Scanner
+    [Booking UI] as Booking
+    [Consultation UI] as Consultation
+    [Payment UI] as Payment
+}
+
+package "Doctor Interface" {
+    [Doctor Dashboard] as DocDashboard
+    [Consultation Chat] as DocConsultation
+    [Schedule Manager] as DocSchedule
+}
+
+package "Admin Interface" {
+    [Admin Dashboard] as AdminDashboard
+    [Doctor Verification] as DocVerification
+}
+
+package "AI Layer (Inference)" {
+    [Text Analysis] as TextAnalysis
+    [LLM (Cohere API)] as LLM
+    [Feature Extraction] as FeatureExtract
+    [Classification Model] as Model
+}
+
+package "Backend Layer (Logic & Broker)" {
+    [REST API Server] as Backend
+    [Payment Gateway] as PaymentGateway
+    [Socket.IO Server] as SocketIO
+    
+    database "User DB" as UserDB
+    database "Appointment DB" as ApptDB
+    database "Doctor DB" as DocDB
+    database "Reference / Analysis DB" as ReferenceDB
+}
+
+' Patient Interactions
+Chatbot --> TextAnalysis : "forward text query"
+Scanner --> FeatureExtract : "send uploaded scan"
+Booking --> Backend : "request time slot"
+Consultation --> SocketIO : "initiate message session"
+Payment --> PaymentGateway : "send credentials"
+
+' Doctor Interactions
+DocDashboard --> DocConsultation
+DocDashboard --> DocSchedule
+DocConsultation <--> SocketIO : "WebSocket duplex chat"
+DocSchedule --> Backend : "manage availability"
+
+' Admin Interactions
+AdminDashboard --> Backend : "fetch stats & logs"
+DocVerification --> Backend : "approve / reject doctor"
+
+' AI Layer Connections
+TextAnalysis --> LLM
+FeatureExtract --> Model
+Model --> ReferenceDB : "save scan classification"
+LLM --> ReferenceDB : "query context references"
+LLM --> DocDB : "lookup recommended doctors"
+LLM --> Chatbot : "return chatbot response"
+
+' Backend logic routing
+Backend --> UserDB : "manage accounts"
+Backend --> ApptDB : "manage appointments"
+Backend --> DocDB : "manage profiles"
+Backend --> ReferenceDB : "fetch analysis reports"
+
+' Payment Gateway Confirmation
+PaymentGateway --> Backend : "confirm transaction"
+Backend --> ApptDB : "set status to confirmed"
+Backend --> DocDashboard : "payment notification"
+
+@enduml

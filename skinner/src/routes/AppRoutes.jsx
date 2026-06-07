@@ -11,6 +11,7 @@ import Features from "@/pages/features";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import GuestRoute from "@/components/GuestRoute";
 import { AuthProvider } from "@/context/AuthContext";
+import { LanguageProvider } from "@/context/LanguageContext";
 
 const SignIn        = lazy(() => import("../pages/sign-in"));
 const Register      = lazy(() => import("../pages/register"));
@@ -22,34 +23,36 @@ export default function AppRoutes() {
     // AuthProvider must be inside BrowserRouter (already in main.jsx)
     // so that useNavigate() works inside the provider.
     <AuthProvider>
-      <Suspense fallback={<LoaderPage />}>
-        <Routes>
-          <Route path="/"               element={<GuestRoute element={<Home />} />} />
-          <Route path="/contact-us"     element={<ContactUs />} />
-          <Route path="/features"       element={<Features />} />
-          <Route path="/sign-in"        element={<GuestRoute element={<SignIn />} />} />
-          <Route path="/register"       element={<GuestRoute element={<Register />} />} />
-          <Route path="/forgot-password" element={<GuestRoute element={<ForgotPassword />} />} />
-          <Route path="/verify-code"    element={<GuestRoute element={<VerifyCode />} />} />
-          <Route path="/reset-password" element={<GuestRoute element={<ResetPassword />} />} />
+      <LanguageProvider>
+        <Suspense fallback={<LoaderPage />}>
+          <Routes>
+            <Route path="/"               element={<GuestRoute element={<Home />} />} />
+            <Route path="/contact-us"     element={<ContactUs />} />
+            <Route path="/features"       element={<Features />} />
+            <Route path="/sign-in"        element={<GuestRoute element={<SignIn />} />} />
+            <Route path="/register"       element={<GuestRoute element={<Register />} />} />
+            <Route path="/forgot-password" element={<GuestRoute element={<ForgotPassword />} />} />
+            <Route path="/verify-code"    element={<GuestRoute element={<VerifyCode />} />} />
+            <Route path="/reset-password" element={<GuestRoute element={<ResetPassword />} />} />
 
-          <Route
-            path="/patient-portal"
-            element={<ProtectedRoute element={<PatientPortal />} requiredRole="patient" />}
-          />
-          <Route
-            path="/admin-portal"
-            element={<ProtectedRoute element={<AdminPortal />} requiredRole="admin" />}
-          />
-          <Route
-            path="/doctor-portal"
-            element={<ProtectedRoute element={<DoctorPortal />} requiredRole="doctor" />}
-          />
+            <Route
+              path="/patient-portal"
+              element={<ProtectedRoute element={<PatientPortal />} requiredRole="patient" />}
+            />
+            <Route
+              path="/admin-portal"
+              element={<ProtectedRoute element={<AdminPortal />} requiredRole="admin" />}
+            />
+            <Route
+              path="/doctor-portal"
+              element={<ProtectedRoute element={<DoctorPortal />} requiredRole="doctor" />}
+            />
 
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
+            {/* Catch-all */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
+      </LanguageProvider>
     </AuthProvider>
   );
 }

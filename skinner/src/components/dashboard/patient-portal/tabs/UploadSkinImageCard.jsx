@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useRef, useEffect } from "react";
 import {
   Upload,
@@ -14,10 +12,12 @@ import { Button } from "@/components/ui/button";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { analysisApi, saveLatestAnalysisId } from "@/services/skinnerApi";
 import { adaptAnalysis, extractId } from "@/services/apiAdapters";
+import { useTranslation } from "@/context/LanguageContext";
 
 const RESULT_KEY           = "skinner_latest_analysis_result";
 
 export default function UploadSkinImageCard({ onAnalyze, onUploadComplete }) {
+  const { t } = useTranslation();
   const maxSizeMB = 10;
   const maxSize = maxSizeMB * 1024 * 1024;
   const [isAnalyzing,     setIsAnalyzing]     = useState(false);
@@ -37,11 +37,11 @@ export default function UploadSkinImageCard({ onAnalyze, onUploadComplete }) {
   const previewUrl = files[0]?.preview || null;
 
   const tips = [
-    "Ensure good lighting without shadows",
-    "Take photo perpendicular to the skin surface",
-    "Include a reference object for scale if possible",
-    "Avoid using flash when possible",
-    "Capture the entire affected area",
+    t("tip_1"),
+    t("tip_2"),
+    t("tip_3"),
+    t("tip_4"),
+    t("tip_5"),
   ];
 
   const stopCamera = () => {
@@ -192,17 +192,17 @@ export default function UploadSkinImageCard({ onAnalyze, onUploadComplete }) {
 
   if (previewUrl) {
     return (
-      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:bg-zinc-900 dark:border-zinc-800">
         <div className="mb-5">
-          <h2 className="text-[15px] font-medium text-slate-900">
-            Saved Image - Ready for Analysis
+          <h2 className="text-[15px] font-medium text-slate-900 dark:text-white">
+            {t("saved_image_title")}
           </h2>
-          <p className="mt-1 text-[13px] text-gray-500">
-            Your image has been securely saved and is ready for AI analysis
+          <p className="mt-1 text-[13px] text-gray-500 dark:text-zinc-400">
+            {t("saved_image_desc")}
           </p>
         </div>
 
-        <div className="relative overflow-hidden rounded-sm border border-gray-200 bg-gray-50">
+        <div className="relative overflow-hidden rounded-sm border border-gray-200 bg-gray-50 dark:border-zinc-800">
           <img
             src={previewUrl}
             alt="Uploaded skin area"
@@ -212,7 +212,7 @@ export default function UploadSkinImageCard({ onAnalyze, onUploadComplete }) {
             <button
               type="button"
               onClick={handleRemoveImage}
-              className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-sm transition hover:bg-white"
+              className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-sm transition hover:bg-white dark:bg-zinc-800 dark:text-zinc-200"
               aria-label="Remove uploaded image"
             >
               <X className="size-4" />
@@ -220,17 +220,17 @@ export default function UploadSkinImageCard({ onAnalyze, onUploadComplete }) {
           )}
 
           {isAnalyzing && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[2px]">
-              <div className="flex flex-col items-center gap-4 rounded-xl bg-white/95 px-8 py-6 shadow-lg">
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[2px] dark:bg-zinc-950/60">
+              <div className="flex flex-col items-center gap-4 rounded-xl bg-white/95 px-8 py-6 shadow-lg dark:bg-zinc-900">
                 <div className="relative flex items-center justify-center">
-                  <div className="size-12 animate-spin rounded-full border-4 border-gray-200 border-t-[#050316]" />
+                  <div className="size-12 animate-spin rounded-full border-4 border-gray-200 border-t-[#050316] dark:border-zinc-700 dark:border-t-blue-500" />
                 </div>
                 <div className="text-center">
-                  <p className="text-[15px] font-semibold text-slate-900">
-                    AI Analysis in Progress
+                  <p className="text-[15px] font-semibold text-slate-900 dark:text-white">
+                    {t("ai_progress_title")}
                   </p>
-                  <p className="mt-1.5 text-[13px] text-gray-500">
-                    Analyzing your skin image
+                  <p className="mt-1.5 text-[13px] text-gray-500 dark:text-zinc-400">
+                    {t("ai_progress_desc")}
                     <span className="inline-flex">
                       <span className="animate-[loading-dots_1.4s_infinite_0.2s]">.</span>
                       <span className="animate-[loading-dots_1.4s_infinite_0.4s]">.</span>
@@ -243,56 +243,56 @@ export default function UploadSkinImageCard({ onAnalyze, onUploadComplete }) {
           )}
         </div>
 
-        {apiError && <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-700">{apiError}</div>}
+        {apiError && <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-700 dark:bg-red-950/20 dark:border-red-900/30">{apiError}</div>}
         <div className="mt-4 flex flex-wrap gap-3">
           <Button
-            className="h-9 rounded-md bg-[#050316] text-[13px] text-white hover:bg-[#111026]"
+            className="h-9 rounded-md bg-[#050316] text-[13px] text-white hover:bg-[#111026] dark:bg-blue-600 dark:hover:bg-blue-500"
             onClick={handleAnalyze}
             disabled={isAnalyzing}
           >
             {isAnalyzing ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Analyzing...
+                {t("analyzing")}
               </>
             ) : (
               <>
                 <Activity className="size-4" />
-                Analyze Image with AI
+                {t("analyze_with_ai")}
               </>
             )}
           </Button>
           <Button
             type="button"
             variant="outline"
-            className="h-9 rounded-md px-5 text-[13px]"
+            className="h-9 rounded-md px-5 text-[13px] dark:border-zinc-800 dark:text-zinc-300"
             onClick={openFileDialog}
             disabled={isAnalyzing}
           >
             <RefreshCcw className="size-4" />
-            Upload New Image
+            {t("upload_new_image")}
           </Button>
           <Button
             type="button"
             variant="outline"
-            className="h-9 rounded-md px-5 text-[13px]"
+            className="h-9 rounded-md px-5 text-[13px] dark:border-zinc-800 dark:text-zinc-300"
             onClick={handleTakePhoto}
             disabled={isAnalyzing}
           >
             <Camera className="size-4" />
-            Retake Photo
+            {t("retake_photo")}
           </Button>
         </div>
 
         {showCamera && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-            <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
-              <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-                <h3 className="text-[15px] font-semibold text-slate-900">Take a Photo</h3>
+            <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900">
+              <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-zinc-800">
+                <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">{t("take_photo")}</h3>
                 <button
                   type="button"
                   onClick={closeCamera}
-                  className="flex size-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"
+                  className="flex size-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
                 >
                   <X className="size-5" />
                 </button>
@@ -314,15 +314,15 @@ export default function UploadSkinImageCard({ onAnalyze, onUploadComplete }) {
                 <canvas ref={canvasRef} className="hidden" />
                 {cameraError && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/60 p-6">
-                    <div className="rounded-xl bg-white p-6 text-center shadow-lg">
+                    <div className="rounded-xl bg-white p-6 text-center shadow-lg dark:bg-zinc-900">
                       <Camera className="mx-auto size-10 text-gray-400" />
-                      <p className="mt-3 text-[13px] text-gray-700">{cameraError}</p>
+                      <p className="mt-3 text-[13px] text-gray-700 dark:text-zinc-300">{cameraError}</p>
                       <Button
                         variant="outline"
-                        className="mt-4 h-9 rounded-md text-[13px]"
+                        className="mt-4 h-9 rounded-md text-[13px] dark:border-zinc-800"
                         onClick={closeCamera}
                       >
-                        Close
+                        {t("close")}
                       </Button>
                     </div>
                   </div>
@@ -333,7 +333,7 @@ export default function UploadSkinImageCard({ onAnalyze, onUploadComplete }) {
                   type="button"
                   onClick={capturePhoto}
                   disabled={!!cameraError}
-                  className="flex size-16 items-center justify-center rounded-full border-4 border-gray-300 bg-white text-gray-700 transition hover:border-[#050316] hover:text-[#050316] disabled:opacity-50"
+                  className="flex size-16 items-center justify-center rounded-full border-4 border-gray-300 bg-white text-gray-700 transition hover:border-[#050316] hover:text-[#050316] disabled:opacity-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200"
                 >
                   <Camera className="size-7" />
                 </button>
@@ -348,25 +348,24 @@ export default function UploadSkinImageCard({ onAnalyze, onUploadComplete }) {
   }
 
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:bg-zinc-900 dark:border-zinc-800">
       <div>
-        <h2 className="text-[15px] font-medium text-slate-900">
-          Upload Skin Image
+        <h2 className="text-[15px] font-medium text-slate-900 dark:text-white">
+          {t("upload_skin_image")}
         </h2>
-        <p className="mt-1 text-[13px] text-gray-500">
-          Take a clear photo or upload an image of the affected area for AI
-          analysis
+        <p className="mt-1 text-[13px] text-gray-500 dark:text-zinc-400">
+          {t("upload_skin_desc")}
         </p>
       </div>
 
-      <div className="mt-7 rounded-lg border border-blue-100 bg-blue-50 p-4">
+      <div className="mt-7 rounded-lg border border-blue-100 bg-blue-50 p-4 dark:bg-zinc-950/20 dark:border-zinc-800">
         <div className="mb-3 flex items-center gap-2">
-          <Info className="size-4 text-blue-700" />
-          <span className="text-[13px] font-medium text-blue-800">
-            For best results:
+          <Info className="size-4 text-blue-700 dark:text-blue-400" />
+          <span className="text-[13px] font-medium text-blue-800 dark:text-blue-300">
+            {t("best_results")}
           </span>
         </div>
-        <ul className="ml-10 space-y-2 text-[13px] leading-none text-blue-700">
+        <ul className="ml-10 space-y-2 text-[13px] leading-none text-blue-700 dark:text-blue-400 list-disc">
           {tips.map((tip) => (
             <li key={tip}>{tip}</li>
           ))}
@@ -379,31 +378,31 @@ export default function UploadSkinImageCard({ onAnalyze, onUploadComplete }) {
         <button
           type="button"
           onClick={openFileDialog}
-          className="flex min-h-[145px] flex-col items-center justify-center rounded-lg border border-gray-200 bg-white p-7 text-center transition hover:border-blue-300 hover:bg-blue-50/40"
+          className="flex min-h-[145px] flex-col items-center justify-center rounded-lg border border-gray-200 bg-white p-7 text-center transition hover:border-blue-300 hover:bg-blue-50/40 dark:bg-zinc-900 dark:border-zinc-800 dark:hover:bg-zinc-800/40 cursor-pointer"
         >
-          <span className="flex size-12 items-center justify-center rounded-full bg-blue-100">
-            <Upload className="size-6 text-blue-600" />
+          <span className="flex size-12 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-950/60">
+            <Upload className="size-6 text-blue-600 dark:text-blue-400" />
           </span>
-          <span className="mt-4 text-[14px] font-medium text-slate-700">
-            Upload from Device
+          <span className="mt-4 text-[14px] font-medium text-slate-700 dark:text-white">
+            {t("upload_from_device")}
           </span>
-          <span className="mt-2 text-[12px] text-gray-500">
-            Click to browse files
+          <span className="mt-2 text-[12px] text-gray-500 dark:text-zinc-400">
+            {t("browse_files")}
           </span>
         </button>
 
         <button
           type="button"
           onClick={handleTakePhoto}
-          className="flex min-h-[145px] flex-col items-center justify-center rounded-lg border border-gray-200 bg-white p-7 text-center transition hover:border-green-300 hover:bg-green-50/40"
+          className="flex min-h-[145px] flex-col items-center justify-center rounded-lg border border-gray-200 bg-white p-7 text-center transition hover:border-green-300 hover:bg-green-50/40 dark:bg-zinc-900 dark:border-zinc-800 dark:hover:bg-zinc-800/40 cursor-pointer"
         >
-          <span className="flex size-12 items-center justify-center rounded-full bg-green-100">
-            <Camera className="size-6 text-green-600" />
+          <span className="flex size-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-950/60">
+            <Camera className="size-6 text-green-600 dark:text-green-400" />
           </span>
-          <span className="mt-4 text-[14px] font-medium text-slate-700">
-            Take Photo
+          <span className="mt-4 text-[14px] font-medium text-slate-700 dark:text-white">
+            {t("take_photo")}
           </span>
-          <span className="mt-2 text-[12px] text-gray-500">Use your camera</span>
+          <span className="mt-2 text-[12px] text-gray-500 dark:text-zinc-400">{t("use_camera")}</span>
         </button>
       </div>
 
@@ -411,19 +410,19 @@ export default function UploadSkinImageCard({ onAnalyze, onUploadComplete }) {
         <p className="mt-3 text-center text-xs text-red-500">{errors[0]}</p>
       )}
 
-      <p className="mt-3 text-center text-[11px] text-gray-500">
-        Supported formats: JPG, PNG, HEIC - Max file size: {maxSizeMB}MB
+      <p className="mt-3 text-center text-[11px] text-gray-500 dark:text-zinc-400">
+        {t("supported_formats")} {maxSizeMB}MB
       </p>
 
       {showCamera && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-              <h3 className="text-[15px] font-semibold text-slate-900">Take a Photo</h3>
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900">
+            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-zinc-800">
+              <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">{t("take_photo")}</h3>
               <button
                 type="button"
                 onClick={closeCamera}
-                className="flex size-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"
+                className="flex size-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
               >
                 <X className="size-5" />
               </button>
@@ -445,15 +444,15 @@ export default function UploadSkinImageCard({ onAnalyze, onUploadComplete }) {
               <canvas ref={canvasRef} className="hidden" />
               {cameraError && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/60 p-6">
-                  <div className="rounded-xl bg-white p-6 text-center shadow-lg">
+                  <div className="rounded-xl bg-white p-6 text-center shadow-lg dark:bg-zinc-900">
                     <Camera className="mx-auto size-10 text-gray-400" />
-                    <p className="mt-3 text-[13px] text-gray-700">{cameraError}</p>
+                    <p className="mt-3 text-[13px] text-gray-700 dark:text-zinc-300">{cameraError}</p>
                     <Button
                       variant="outline"
-                      className="mt-4 h-9 rounded-md text-[13px]"
+                      className="mt-4 h-9 rounded-md text-[13px] dark:border-zinc-800"
                       onClick={closeCamera}
                     >
-                      Close
+                      {t("close")}
                     </Button>
                   </div>
                 </div>
@@ -464,7 +463,7 @@ export default function UploadSkinImageCard({ onAnalyze, onUploadComplete }) {
                 type="button"
                 onClick={capturePhoto}
                 disabled={!!cameraError}
-                className="flex size-16 items-center justify-center rounded-full border-4 border-gray-300 bg-white text-gray-700 transition hover:border-[#050316] hover:text-[#050316] disabled:opacity-50"
+                className="flex size-16 items-center justify-center rounded-full border-4 border-gray-300 bg-white text-gray-700 transition hover:border-[#050316] hover:text-[#050316] disabled:opacity-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200"
               >
                 <Camera className="size-7" />
               </button>

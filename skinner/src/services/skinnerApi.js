@@ -157,7 +157,7 @@ export const authApi = {
     if (file) fd.append("syndicate_card_image", file);
     return apiRequest("/api/auth/register-doctor", { method: "POST", body: fd, auth: false });
   },
-  forgotPassword:  (email) => apiRequest("/api/auth/forgot-password",  { method: "POST", body: { email }, auth: false }),
+  forgotPassword:  (email, force = false) => apiRequest("/api/auth/forgot-password",  { method: "POST", body: { email, force }, auth: false }),
   resetPassword:   ({ email, otp, newPassword }) =>
     apiRequest("/api/auth/reset-password", { method: "POST", body: { email, otp, new_password: newPassword }, auth: false }),
 };
@@ -232,10 +232,11 @@ export const doctorApi = {
 
 export const adminApi = {
   pendingDoctors:    ()    => apiRequest("/api/admin/pending-doctors"),
-  approveDoctor:     (id)  => apiRequest("/api/admin/approve-doctor",      { method: "POST", body: { medical_syndicate_id_card: id } }),
-  rejectDoctor:      (id)  => apiRequest("/api/admin/reject-doctor",       { method: "POST", body: { medical_syndicate_id_card: id } }),
+  approveDoctor:     (id, notes)  => apiRequest("/api/admin/approve-doctor",      { method: "POST", body: { medical_syndicate_id_card: id, notes } }),
+  rejectDoctor:      (id, notes)  => apiRequest("/api/admin/reject-doctor",       { method: "POST", body: { medical_syndicate_id_card: id, notes } }),
   reports:           ()    => apiRequest("/api/admin/reports"),
   generateAdminCode: ()    => apiRequest("/api/admin/generate-admin-code", { method: "POST" }),
+  activeInviteCode:  ()    => apiRequest("/api/admin/active-invite-code"),
   stats:             ()    => apiRequest("/api/admin/stats"),
   analyses:          ()    => apiRequest("/api/admin/analyses"),
   users:             ()    => apiRequest("/api/admin/users"),

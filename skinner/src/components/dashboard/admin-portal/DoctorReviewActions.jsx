@@ -9,10 +9,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useTranslation } from "@/context/LanguageContext";
 
 export default function DoctorReviewActions({ doctorName = "this doctor", onApprove, onReject, busy }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [actionType, setActionType] = useState(null);
+  const { t } = useTranslation();
 
   const handleTriggerAction = (type) => {
     setActionType(type);
@@ -26,6 +28,8 @@ export default function DoctorReviewActions({ doctorName = "this doctor", onAppr
     setDialogOpen(false);
   };
 
+  const displayName = doctorName === "this doctor" ? t("this_doctor") : doctorName;
+
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -35,7 +39,7 @@ export default function DoctorReviewActions({ doctorName = "this doctor", onAppr
           onClick={() => handleTriggerAction("approve")}
           className="bg-green-600 hover:bg-green-700 text-white flex gap-2 disabled:opacity-60"
         >
-          <CheckCircle2 className="h-4 w-4" /> Approve & Activate Account
+          <CheckCircle2 className="h-4 w-4" /> {t("approve_activate_btn")}
         </Button>
 
         <Button
@@ -44,7 +48,7 @@ export default function DoctorReviewActions({ doctorName = "this doctor", onAppr
           onClick={() => handleTriggerAction("reject")}
           className="bg-red-600 hover:bg-red-700 text-white flex gap-2 disabled:opacity-60"
         >
-          <XCircle className="h-4 w-4" /> Reject Application
+          <XCircle className="h-4 w-4" /> {t("reject_application_btn")}
         </Button>
       </div>
 
@@ -54,22 +58,22 @@ export default function DoctorReviewActions({ doctorName = "this doctor", onAppr
             <div className={`p-3 rounded-full mb-2 ${isApprove ? "bg-green-50" : "bg-red-50"}`}>
               {isApprove ? <CheckCircle2 className="h-8 w-8 text-green-600" /> : <AlertTriangle className="h-8 w-8 text-red-600" />}
             </div>
-            <DialogTitle className="text-xl">{isApprove ? "Confirm Approval" : "Confirm Rejection"}</DialogTitle>
+            <DialogTitle className="text-xl">{isApprove ? t("confirm_approval") : t("confirm_rejection")}</DialogTitle>
             <DialogDescription className="pt-2">
               {isApprove
-                ? `Are you sure you want to approve ${doctorName}? This will activate their account.`
-                : `Are you sure you want to reject ${doctorName}? This action will be logged.`}
+                ? t("approve_confirm_question").replace("{name}", displayName)
+                : t("reject_confirm_question").replace("{name}", displayName)}
             </DialogDescription>
           </DialogHeader>
 
           <DialogFooter className="flex gap-2 sm:justify-center mt-4">
-            <Button variant="outline" onClick={() => setDialogOpen(false)} className="flex-1">Cancel</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="flex-1">{t("cancel")}</Button>
             <Button
               disabled={busy}
               onClick={handleConfirm}
               className={`flex-1 ${isApprove ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}`}
             >
-              {busy ? "Working..." : `Confirm ${isApprove ? "Approval" : "Rejection"}`}
+              {busy ? t("working_dots") : (isApprove ? t("confirm_approval") : t("confirm_rejection"))}
             </Button>
           </DialogFooter>
         </DialogContent>

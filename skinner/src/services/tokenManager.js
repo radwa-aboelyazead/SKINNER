@@ -26,9 +26,14 @@ export const STORAGE_KEYS = {
 // ─── Helpers ─────────────────────────────────────────────────
 function base64Decode(str) {
   try {
+    let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = base64.length % 4;
+    if (pad) {
+      base64 += "=".repeat(4 - pad);
+    }
     return decodeURIComponent(
       Array.prototype.map
-        .call(atob(str), (c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .call(atob(base64), (c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
         .join("")
     );
   } catch {
@@ -59,9 +64,7 @@ export function isTokenExpired(token, offsetSeconds = 60) {
 // ─── Persistent storage helpers ──────────────────────────────
 /** Pick the right storage based on where the token currently lives. */
 function getActiveStorage() {
-  if (localStorage.getItem(STORAGE_KEYS.token)) return localStorage;
-  if (sessionStorage.getItem(STORAGE_KEYS.token)) return sessionStorage;
-  return null;
+  return localStorage;
 }
 
 export function getAccessToken() {
@@ -84,12 +87,12 @@ export function getRefreshToken() {
  * Persist the full auth session.
  * @param {object} payload   - raw API response
  * @param {string} fallbackRole
- * @param {boolean} remember - true → localStorage, false → sessionStorage
+ * @param {boolean} remember - always saved to localStorage for cross-tab sync
  */
 export function saveSession(payload = {}, fallbackRole = "patient", remember = true) {
-  const storage = remember ? localStorage : sessionStorage;
+  const storage = localStorage;
   // Also clear the OTHER storage so there are never two copies
-  const other = remember ? sessionStorage : localStorage;
+  const other = sessionStorage;
   Object.values(STORAGE_KEYS).forEach((k) => other.removeItem(k));
 
   const token =
@@ -128,9 +131,11 @@ export function updateTokens(newAccessToken, newRefreshToken) {
 
 /** Wipe every auth key from both storages. */
 export function clearSession() {
-  [localStorage, sessionStorage].forEach((s) =>
-    Object.values(STORAGE_KEYS).forEach((k) => s.removeItem(k))
-  );
+  [localStorage, sessionStorage].forEach((s) => {
+    Object.values(STORAGE_KEYS).forEach((k) => s.removeItem(k));
+    s.removeItem("skinner_latest_analysis_result");
+    s.removeItem("skinner_booking_started");
+  });
 }
 
 export function getCurrentUser() {

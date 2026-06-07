@@ -12,13 +12,67 @@ import {
 } from "lucide-react";
 import EmptyState from "@/components/ui/EmptyState";
 import PlaceholderImage from "@/components/ui/PlaceholderImage";
-import { analysisApi } from "@/services/skinnerApi";
-import { adaptAnalysis } from "@/services/apiAdapters";
+import { useTranslation } from "@/context/LanguageContext";
 
-export default function AnalysisTab({ onFindDoctors, analysis: propAnalysis, isLoading = false, errorMessage = "" }) {
+export default function AnalysisTab({ onFindDoctors, onStartAnalysis, analysis: propAnalysis, isLoading = false, errorMessage = "" }) {
+  const { t } = useTranslation();
   const [analysis, setAnalysis] = useState(propAnalysis);
   const [loading, setLoading] = useState(isLoading);
   const [loadError, setLoadError] = useState(errorMessage);
+
+  // Map DISEASE_INFO keys → translation key prefix (lowercase, no separators)
+  const conditionKeyMap = {
+    moles: "moles", acne: "acne", actinic_keratosis: "actinic_keratosis",
+    bullous: "bullous", drugeruption: "drugeruption", eczema: "eczema",
+    lichen: "lichen", lupus: "lupus", rosacea: "rosacea",
+    seborrh_keratoses: "seborrh_keratoses", skincancer: "skincancer",
+    tinea: "tinea", unknown_normal: "unknown_normal", vasculitis: "vasculitis",
+    vitiligo: "vitiligo", warts: "warts",
+  };
+
+  const normalizeConditionKey = (condition) => {
+    if (!condition) return null;
+    const lower = String(condition).toLowerCase().replace(/[\s_-]+/g, "");
+    for (const [key, prefix] of Object.entries(conditionKeyMap)) {
+      if (lower === key.replace(/[\s_-]+/g, "") || lower.includes(key.replace(/[\s_-]+/g, ""))) {
+        return prefix;
+      }
+    }
+    return null;
+  };
+
+  const getConditionLabel = (condition) => {
+    if (!condition) return t("condition_unavailable");
+    const prefix = normalizeConditionKey(condition);
+    if (prefix) {
+      const translated = t(`${prefix}_title`);
+      if (translated !== `${prefix}_title`) return translated;
+    }
+    return condition;
+  };
+
+  const getTranslatedDescription = (condition, fallback) => {
+    const prefix = normalizeConditionKey(condition);
+    if (prefix) {
+      const translated = t(`${prefix}_description`);
+      if (translated !== `${prefix}_description`) return translated;
+    }
+    return fallback || t("no_description_available");
+  };
+
+  const getTranslatedRecommendations = (condition, fallbackRecs = []) => {
+    const prefix = normalizeConditionKey(condition);
+    if (prefix) {
+      const recs = [];
+      for (let i = 1; i <= 5; i++) {
+        const key = `${prefix}_rec_${i}`;
+        const translated = t(key);
+        if (translated !== key) recs.push(translated);
+      }
+      if (recs.length > 0) return recs;
+    }
+    return fallbackRecs;
+  };
 
   useEffect(() => {
     setAnalysis(propAnalysis);
@@ -37,7 +91,7 @@ export default function AnalysisTab({ onFindDoctors, analysis: propAnalysis, isL
       <section className="mx-auto flex max-w-[640px] items-center justify-center rounded-xl border border-gray-200 bg-white p-16 shadow-sm">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="size-10 animate-spin text-[#050316]" />
-          <p className="text-[14px] font-medium text-gray-600">Loading analysis...</p>
+          <p className="text-[14px] font-medium text-gray-600">{t("loading_analysis")}</p>
         </div>
       </section>
     );
@@ -47,9 +101,9 @@ export default function AnalysisTab({ onFindDoctors, analysis: propAnalysis, isL
     return (
       <div className="mx-auto max-w-[640px] py-10">
         <EmptyState
-          title="Unable to load analysis"
+          title={t("unable_to_load_analysis")}
           message={loadError}
-          action={{ label: "Retry", onClick: () => window.location.reload() }}
+          action={{ label: t("retry"), onClick: () => window.location.reload() }}
         />
       </div>
     );
@@ -59,9 +113,9 @@ export default function AnalysisTab({ onFindDoctors, analysis: propAnalysis, isL
     return (
       <div className="mx-auto max-w-[640px] py-10">
         <EmptyState
-          title="No analysis available"
-          message="Upload an image to generate a skin analysis or return after the backend has provided analysis data."
-          action={{ label: "Retry", onClick: () => window.location.reload() }}
+          title={t("no_analysis_available")}
+          message={t("upload_to_receive_ai")}
+          action={{ label: t("start_analysis"), onClick: onStartAnalysis }}
         />
       </div>
     );
@@ -80,14 +134,16 @@ export default function AnalysisTab({ onFindDoctors, analysis: propAnalysis, isL
         <div>
           <div className="flex items-center gap-2 text-slate-900">
             <FileText className="size-4" />
-            <h2 className="text-[15px] font-medium">AI Analysis Results</h2>
+            <h2 className="text-[15px] font-medium">{t("ai_analysis_results")}</h2>
           </div>
           <p className="mt-2 text-[12px] text-gray-500">
-            Analysis completed {analysis?.createdAt ? `on ${new Date(analysis.createdAt).toLocaleString()}` : "on an unknown date"}
+            {analysis?.createdAt
+              ? `${t("analysis_completed_on")} ${new Date(analysis.createdAt).toLocaleString()}`
+              : `${t("analysis_completed_on")} ${t("analysis_completed_unknown")}`}
           </p>
         </div>
         <span className="rounded-md border border-blue-100 bg-blue-50 px-2 py-1 text-[10px] text-blue-700">
-          AI-Powered
+          {t("ai_powered")}
         </span>
       </div>
 
@@ -95,17 +151,14 @@ export default function AnalysisTab({ onFindDoctors, analysis: propAnalysis, isL
         <div className="flex items-start gap-2">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-700" />
           <p className="text-[11px] leading-relaxed text-amber-900">
-            <span className="font-semibold">Medical Disclaimer:</span> This AI
-            analysis is for informational purposes only and should not replace
-            professional medical advice. Please consult with a qualified
-            healthcare provider for proper diagnosis and treatment.
+            <span className="font-semibold">{t("medical_disclaimer_capital")}</span> {t("medical_disclaimer_detailed")}
           </p>
         </div>
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-[1fr_205px]">
         <div>
-          <p className="mb-2 text-[11px] text-gray-500">Analyzed Image</p>
+          <p className="mb-2 text-[11px] text-gray-500">{t("analyzed_image")}</p>
           {analysis?.localImageUrl || analysis?.imageUrl ? (
             <img
               src={analysis.localImageUrl || analysis.imageUrl}
@@ -113,27 +166,27 @@ export default function AnalysisTab({ onFindDoctors, analysis: propAnalysis, isL
               className="h-[200px] w-full rounded-md object-contain bg-gray-900"
             />
           ) : (
-            <PlaceholderImage className="h-[126px] w-full rounded-md" label="No image available" />
+            <PlaceholderImage className="h-[126px] w-full rounded-md" label={t("no_image_available")} />
           )}
         </div>
 
         <div>
-          <p className="mb-2 text-[11px] text-gray-500">Primary Detection</p>
+          <p className="mb-2 text-[11px] text-gray-500">{t("primary_detection")}</p>
           <div className="rounded-lg border border-gray-200 p-3">
             <h3 className="text-[13px] font-medium text-slate-900">
-              {analysis?.condition || "Condition unavailable"}
+              {getConditionLabel(analysis?.condition)}
             </h3>
             <span className={`mt-2 inline-flex rounded-md px-2 py-0.5 text-[10px] uppercase font-medium ${
               analysis?.confidence >= 85 ? "bg-red-100 text-red-700" :
               analysis?.confidence >= 60 ? "bg-amber-100 text-amber-700" :
               "bg-green-100 text-green-700"
             }`}>
-              {analysis?.confidence >= 85 ? "High" : analysis?.confidence >= 60 ? "Medium" : "Low"} Confidence
+              {analysis?.confidence >= 85 ? t("high") : analysis?.confidence >= 60 ? t("medium") : t("low")} {t("confidence_suffix")}
             </span>
 
 
             <div className="mt-4 flex items-center justify-between text-[10px] text-gray-500">
-              <span>Confidence Level</span>
+              <span>{t("confidence_score")}</span>
               <span>{analysis?.confidence != null ? `${analysis.confidence}%` : "N/A"}</span>
             </div>
             <div className="mt-1 h-2 rounded-full bg-gray-100">
@@ -145,10 +198,10 @@ export default function AnalysisTab({ onFindDoctors, analysis: propAnalysis, isL
           </div>
 
           <div className="mt-4 text-[11px]">
-            <p className="text-gray-500">Analysis Status</p>
+            <p className="text-gray-500">{t("analysis_status")}</p>
             <p className="mt-1 flex items-center gap-1.5 text-green-600">
               <CheckCircle2 className="size-3.5" />
-              Analysis Complete
+              {t("analysis_complete")}
             </p>
           </div>
         </div>
@@ -160,10 +213,10 @@ export default function AnalysisTab({ onFindDoctors, analysis: propAnalysis, isL
       <section>
         <div className="mb-2 flex items-center gap-2 text-slate-900">
           <Info className="size-4 text-blue-600" />
-          <h3 className="text-[13px] font-medium">Description</h3>
+          <h3 className="text-[13px] font-medium">{t("description")}</h3>
         </div>
         <p className="text-[12px] leading-relaxed text-gray-600">
-          {analysis?.description || "No description is available for this analysis."}
+          {getTranslatedDescription(analysis?.condition, analysis?.description)}
         </p>
       </section>
 
@@ -173,25 +226,28 @@ export default function AnalysisTab({ onFindDoctors, analysis: propAnalysis, isL
       <section>
         <div className="mb-3 flex items-center gap-2 text-slate-900">
           <TrendingUp className="size-4 text-green-600" />
-          <h3 className="text-[13px] font-medium">AI Recommendations</h3>
+          <h3 className="text-[13px] font-medium">{t("ai_recommendations")}</h3>
         </div>
-        {analysis?.recommendations?.length > 0 ? (
-          <ul className="space-y-2">
-            {analysis.recommendations.map((item, idx) => (
-              <li
-                key={idx}
-                className="flex items-start gap-2 text-[12px] leading-snug text-gray-600"
-              >
-                <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-green-600" />
-                {item}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-[12px] text-gray-500">
-            No specific recommendations available for this analysis. Please consult a dermatologist for personalized advice.
-          </p>
-        )}
+        {(() => {
+          const recs = getTranslatedRecommendations(analysis?.condition, analysis?.recommendations);
+          return recs.length > 0 ? (
+            <ul className="space-y-2">
+              {recs.map((item, idx) => (
+                <li
+                  key={idx}
+                  className="flex items-start gap-2 text-[12px] leading-snug text-gray-600"
+                >
+                  <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-green-600" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-[12px] text-gray-500">
+              {t("no_recommendations_available")}
+            </p>
+          );
+        })()}
       </section>
 
       <div className="my-5 border-t border-gray-200" />
@@ -200,13 +256,13 @@ export default function AnalysisTab({ onFindDoctors, analysis: propAnalysis, isL
       <section>
         <div className="mb-3 flex items-center gap-2 text-slate-900">
           <Layers className="size-4 text-purple-600" />
-          <h3 className="text-[13px] font-medium">Alternative Detections</h3>
+          <h3 className="text-[13px] font-medium">{t("alternative_detections")}</h3>
         </div>
         {validAlternatives.length > 0 ? (
           <div className="space-y-2">
             {validAlternatives.map((alt, idx) => {
               const conf = alt.confidence;
-              const confLabel = conf >= 60 ? "High" : conf >= 30 ? "Medium" : "Low";
+              const confLabel = conf >= 60 ? t("high") : conf >= 30 ? t("medium") : t("low");
               const confColor = conf >= 60 ? "bg-red-100 text-red-700" : conf >= 30 ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700";
 
               return (
@@ -214,14 +270,14 @@ export default function AnalysisTab({ onFindDoctors, analysis: propAnalysis, isL
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-[12px] font-medium text-slate-900">
-                        {alt.label}
+                        {getConditionLabel(alt.label)}
                       </p>
                       <span className={`mt-1 inline-flex rounded-md px-2 py-0.5 text-[10px] uppercase ${confColor}`}>
-                        {confLabel} Confidence
+                        {confLabel} {t("confidence_suffix")}
                       </span>
                     </div>
                     <div className="text-right text-[10px] text-gray-500">
-                      <p>Confidence</p>
+                      <p>{t("confidence_suffix")}</p>
                       <p className="mt-1 text-slate-900">{conf}%</p>
                     </div>
                   </div>
@@ -232,7 +288,7 @@ export default function AnalysisTab({ onFindDoctors, analysis: propAnalysis, isL
         ) : (
           <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
             <p className="text-center text-[12px] text-gray-500">
-              No significant alternative detections found.
+              {t("no_alternative_detections")}
             </p>
           </div>
         )}
@@ -245,12 +301,10 @@ export default function AnalysisTab({ onFindDoctors, analysis: propAnalysis, isL
           </div>
           <div className="flex-1">
             <p className="text-[13px] font-medium text-blue-900">
-              Next Step: Consult a Specialist
+              {t("next_step_consult")}
             </p>
             <p className="mt-2 text-[12px] leading-relaxed text-blue-700">
-              Based on your analysis results, we recommend consulting with a
-              dermatology specialist for a comprehensive evaluation and
-              personalized treatment plan.
+              {t("consult_recommendation")}
             </p>
             <button
               type="button"
@@ -258,7 +312,7 @@ export default function AnalysisTab({ onFindDoctors, analysis: propAnalysis, isL
               className="mt-3 inline-flex h-8 items-center gap-2 rounded-md bg-[#050316] px-4 text-[12px] font-medium text-white transition hover:bg-[#111026]"
             >
               <Stethoscope className="size-3.5" />
-              Find Recommended Doctors
+              {t("find_recommended_doctors")}
             </button>
           </div>
         </div>

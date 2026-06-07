@@ -11,9 +11,11 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { analysisApi, saveLatestAnalysisId, getAuthToken, chatApi, unwrapData } from "@/services/skinnerApi";
 import { adaptAnalysis, toArray } from "@/services/apiAdapters";
 import { io } from "socket.io-client";
+import { useTranslation } from "../../../context/LanguageContext";
 
-const TAB_ORDER  = ["upload", "analysis", "doctors", "chat", "patient", "library"];
-const TAB_LABELS = { upload: "Upload", analysis: "Analysis", doctors: "Doctors", chat: "Chat", patient: "Patient", library: "Library" };
+const BASE_TABS  = ["upload", "analysis", "doctors", "chat", "patient", "library"];
+
+const BOOKING_STARTED_KEY = "skinner_booking_started";
 
 const RESULT_KEY = "skinner_latest_analysis_result";
 
@@ -21,12 +23,29 @@ const tabClass =
   "h-8 gap-1.5 rounded-md px-3 text-[12px] font-normal text-gray-500 data-active:bg-white data-active:text-slate-900 data-active:shadow-sm";
 
 export default function PatientTabsSection() {
+  const { t } = useTranslation();
   const [activeTab,        setActiveTab]        = useState("upload");
   const [hideTabs,         setHideTabs]         = useState(false);
   const [selectedAnalysis, setSelectedAnalysis] = useState(null);
   const [analysisLoading,  setAnalysisLoading]  = useState(false);
   const [analysisError,    setAnalysisError]    = useState("");
   const [pendingPaymentAppointment, setPendingPaymentAppointment] = useState(null);
+
+  // Booking persistence: once user starts a booking flow, the Doctors tab
+  // remains visible for the rest of the session even if selectedAnalysis is cleared.
+  const [bookingStarted, setBookingStarted] = useState(() => {
+    return sessionStorage.getItem(BOOKING_STARTED_KEY) === "true";
+  });
+
+  const markBookingStarted = () => {
+    if (!bookingStarted) {
+      setBookingStarted(true);
+      sessionStorage.setItem(BOOKING_STARTED_KEY, "true");
+    }
+  };
+
+  // Doctors tab visibility: shown when analysis exists OR booking flow is active
+  const showDoctorsTab = !!selectedAnalysis || bookingStarted;
 
   const [socket, setSocket] = useState(null);
   const [totalUnread, setTotalUnread] = useState(0);
@@ -86,6 +105,7 @@ export default function PatientTabsSection() {
   // Called from PatientTab when user clicks "Pay Now" on a pending_payment appointment
   const handlePayNow = (appointment) => {
     setPendingPaymentAppointment(appointment);
+    markBookingStarted();
     setActiveTab("doctors");
   };
 
@@ -98,16 +118,16 @@ export default function PatientTabsSection() {
       if (saved) {
         const parsed = JSON.parse(saved);
         // Re-adapt through adaptAnalysis to ensure all fields are current
-        const readapted = adaptAnalysis(parsed.raw || parsed);
-        // Preserve the local image URL which wouldn't be in the raw data
-        if (parsed.localImageUrl) readapted.localImageUrl = parsed.localImageUrl;
-        if (!readapted.imageUrl && parsed.imageUrl) readapted.imageUrl = parsed.imageUrl;
-        setSelectedAnalysis(readapted);
-        if (readapted?.id) {
-          saveLatestAnalysisId(readapted.id);
+        const readaped = adaptAnalysis(parsed.raw || parsed);
+        // Preserve the local image URL which wouldn't be in the raw data, as long as it isn't an expired blob URL
+        if (parsed.localImageUrl && !parsed.localImageUrl.startsWith("blob:")) readaped.localImageUrl = parsed.localImageUrl;
+        if (!readaped.imageUrl && parsed.imageUrl) readaped.imageUrl = parsed.imageUrl;
+        setSelectedAnalysis(readaped);
+        if (readaped?.id) {
+          saveLatestAnalysisId(readaped.id);
         }
         // Update localStorage with re-adapted data
-        try { localStorage.setItem(RESULT_KEY, JSON.stringify(readapted)); } catch { /* ignore */ }
+        try { localStorage.setItem(RESULT_KEY, JSON.stringify(readaped)); } catch { /* ignore */ }
       }
     } catch { /* ignore */ }
   }, []);
@@ -153,6 +173,11 @@ export default function PatientTabsSection() {
     }
   };
 
+  // Compute the dynamic tab order based on Doctors tab visibility
+  const TAB_ORDER = showDoctorsTab
+    ? BASE_TABS
+    : BASE_TABS.filter((t) => t !== "doctors");
+
   // Prev / Next navigation
   const currentIndex = TAB_ORDER.indexOf(activeTab);
   const hasPrev = currentIndex > 0;
@@ -165,20 +190,22 @@ export default function PatientTabsSection() {
       {!hideTabs && (
         <div className="mb-7 flex justify-center">
           <TabsList className="h-9 rounded-xl border border-gray-100 bg-gray-100 p-1 shadow-sm">
-            <TabsTrigger value="upload"   className={tabClass}><Upload        className="size-3.5" /> Upload</TabsTrigger>
-            <TabsTrigger value="analysis" className={tabClass}><FileSearch    className="size-3.5" /> Analysis</TabsTrigger>
-            <TabsTrigger value="doctors"  className={tabClass}><Calendar      className="size-3.5" /> Doctors</TabsTrigger>
+            <TabsTrigger value="upload"   className={tabClass}><Upload        className="size-3.5" /> {t("upload_tab")}</TabsTrigger>
+            <TabsTrigger value="analysis" className={tabClass}><FileSearch    className="size-3.5" /> {t("analysis_tab")}</TabsTrigger>
+            {showDoctorsTab && (
+              <TabsTrigger value="doctors"  className={tabClass}><Calendar      className="size-3.5" /> {t("doctors_tab")}</TabsTrigger>
+            )}
             <TabsTrigger value="chat"     className={tabClass}>
               <MessageCircle className="size-3.5" />
-              Chat
+              {t("chat_tab")}
               {totalUnread > 0 && (
                 <span className="ml-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-blue-600 px-1 text-[9px] font-semibold text-white">
                   {totalUnread}
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="patient"  className={tabClass}><User          className="size-3.5" /> Patient</TabsTrigger>
-            <TabsTrigger value="library"  className={tabClass}><Library       className="size-3.5" /> Library</TabsTrigger>
+            <TabsTrigger value="patient"  className={tabClass}><User          className="size-3.5" /> {t("patient_tab")}</TabsTrigger>
+            <TabsTrigger value="library"  className={tabClass}><Library       className="size-3.5" /> {t("library_tab")}</TabsTrigger>
           </TabsList>
         </div>
       )}
@@ -192,7 +219,8 @@ export default function PatientTabsSection() {
           analysis={selectedAnalysis}
           isLoading={analysisLoading}
           errorMessage={analysisError}
-          onFindDoctors={() => setActiveTab("doctors")}
+          onFindDoctors={() => { markBookingStarted(); setActiveTab("doctors"); }}
+          onStartAnalysis={() => setActiveTab("upload")}
         />
       </TabsContent>
 
@@ -230,7 +258,7 @@ export default function PatientTabsSection() {
           className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-slate-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <ChevronLeft className="size-4" />
-          {hasPrev ? TAB_LABELS[TAB_ORDER[currentIndex - 1]] : "Previous"}
+          {hasPrev ? t(TAB_ORDER[currentIndex - 1] + "_tab") : t("previous")}
         </button>
 
         <span className="text-[11px] text-gray-400">{currentIndex + 1} / {TAB_ORDER.length}</span>
@@ -239,7 +267,7 @@ export default function PatientTabsSection() {
           type="button" onClick={goNext} disabled={!hasNext}
           className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-slate-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {hasNext ? TAB_LABELS[TAB_ORDER[currentIndex + 1]] : "Next"}
+          {hasNext ? t(TAB_ORDER[currentIndex + 1] + "_tab") : t("next")}
           <ChevronRight className="size-4" />
         </button>
       </div>

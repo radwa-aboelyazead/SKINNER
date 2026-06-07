@@ -33,6 +33,7 @@ import {
 } from "@/services/skinnerApi";
 import { adaptAnalysis, adaptMessage, toArray } from "@/services/apiAdapters";
 import { cleanText, sanitizeText, validateMessage } from "@/lib/formValidation";
+import { useTranslation } from "@/context/LanguageContext";
 
 // ── Helpers ───────────────────────────────────────────────────
 function formatTime(raw) {
@@ -137,6 +138,7 @@ function parseClinicalSummary(text, fallbackImage = "") {
 }
 
 function MessageBubble({ side, text, time, fileUrl }) {
+  const { t } = useTranslation();
   const isRight = side === "right";
   const resolvedUrl = resolveFileUrl(fileUrl);
   const hasImage = isImageUrl(resolvedUrl);
@@ -183,7 +185,7 @@ function MessageBubble({ side, text, time, fileUrl }) {
         {/* If no text and no file, show empty state */}
         {!text && !resolvedUrl && (
           <div className="px-4 py-2.5 text-[13px] leading-relaxed opacity-50">
-            (empty message)
+            {t("empty_message")}
           </div>
         )}
       </div>
@@ -196,6 +198,7 @@ function MessageBubble({ side, text, time, fileUrl }) {
 
 // ── ConversationList ──────────────────────────────────────────
 function ConversationList({ chats, loading, error, onSelect, onRefresh }) {
+  const { t } = useTranslation();
   if (loading) {
     return (
       <div className="space-y-3">
@@ -209,13 +212,13 @@ function ConversationList({ chats, loading, error, onSelect, onRefresh }) {
   if (error) {
     return (
       <div className="rounded-xl border border-red-100 bg-red-50 p-5 text-center">
-        <p className="text-[13px] text-red-600">{error}</p>
+        <p className="text-[13px] text-red-600">{t(error)}</p>
         <button
           type="button"
           onClick={onRefresh}
           className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-[12px] text-red-700 hover:bg-red-100"
         >
-          <RefreshCcw className="size-3.5" /> Retry
+          <RefreshCcw className="size-3.5" /> {t("retry")}
         </button>
       </div>
     );
@@ -225,9 +228,9 @@ function ConversationList({ chats, loading, error, onSelect, onRefresh }) {
     return (
       <div className="rounded-xl border border-dashed border-gray-200 bg-white p-10 text-center">
         <MessageCircle className="mx-auto mb-3 size-10 text-gray-300" />
-        <p className="text-[14px] font-medium text-slate-700">No conversations yet</p>
+        <p className="text-[14px] font-medium text-slate-700">{t("no_conversations_yet")}</p>
         <p className="mt-1 text-[12px] text-gray-400">
-          Your chats with doctors will appear here after booking an appointment.
+          {t("no_conversations_desc")}
         </p>
       </div>
     );
@@ -266,11 +269,11 @@ function ConversationList({ chats, loading, error, onSelect, onRefresh }) {
                 </div>
               </div>
               <p className="mt-0.5 line-clamp-1 text-[12px] text-gray-500">
-                {lastMsg || "Tap to open conversation"}
+                {lastMsg || t("tap_to_open_conv")}
               </p>
               {hasReport && (
                 <span className="mt-1 inline-flex items-center gap-1 text-[10px] text-green-600">
-                  <FileText className="size-3" /> Report available
+                  <FileText className="size-3" /> {t("report_available")}
                 </span>
               )}
             </div>
@@ -283,6 +286,7 @@ function ConversationList({ chats, loading, error, onSelect, onRefresh }) {
 
 // ── ChatWindow ────────────────────────────────────────────────
 function ChatWindow({ chat, onBack, socket }) {
+  const { t } = useTranslation();
   const chatId = chat?.chat_id || chat?.id || chat?._id || "";
   const doctorName = chat?.doctor_name || chat?.doctorName || "Doctor";
 
@@ -320,11 +324,49 @@ function ChatWindow({ chat, onBack, socket }) {
     return () => { alive = false; };
   }, [chatId]);
 
-  const isLocked = chat?.status === "locked" || chatStatus === "locked" || !!liveReportText;
+  const [secondsLeft, setSecondsLeft] = useState(chat?.remaining_seconds ?? chat?.remainingSeconds ?? null);
+
+  useEffect(() => {
+    setSecondsLeft(chat?.remaining_seconds ?? chat?.remainingSeconds ?? null);
+  }, [chatId, chat?.remaining_seconds, chat?.remainingSeconds]);
+
+  const isLocked = chat?.status === "locked" || chatStatus === "locked";
 
   useEffect(() => {
     setChatStatus(chat?.status || "active");
   }, [chatId, chat?.status]);
+
+  useEffect(() => {
+    if (secondsLeft === null || secondsLeft <= 0 || isLocked) return;
+    const interval = setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setChatStatus("locked");
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [secondsLeft, isLocked, chatId]);
+
+  const appointmentDate = chat?.appointment_date || chat?.appointmentDate || "";
+  const apptDateObj = appointmentDate ? new Date(appointmentDate) : null;
+  const isFutureAppt = apptDateObj && new Date() < apptDateObj;
+
+  const formatCountdown = (secs) => {
+    if (secs === null || secs <= 0) return "";
+    const days = Math.floor(secs / (24 * 3600));
+    const hours = Math.floor((secs % (24 * 3600)) / 3600);
+    const minutes = Math.floor((secs % 3600) / 60);
+    
+    let parts = [];
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0 || days > 0) parts.push(`${hours}h`);
+    parts.push(`${minutes}m`);
+    return parts.join(" ");
+  };
 
   // ── Build a synthetic pinned analysis card from an analysis object ──
   function buildSyntheticCard(analysis) {
@@ -408,6 +450,9 @@ function ChatWindow({ chat, onBack, socket }) {
         if (res && res.chat_status) {
           setChatStatus(res.chat_status);
         }
+        if (res && res.remaining_seconds !== undefined) {
+          setSecondsLeft(res.remaining_seconds);
+        }
 
         // Separate analysis cards from regular messages
         // Detection: system sender + skin_analysis.jpg filename, OR text containing AI Prediction line
@@ -444,7 +489,7 @@ function ChatWindow({ chat, onBack, socket }) {
           }
         }
       } catch (err) {
-        if (alive) setLoadErr(err?.message || "Could not load messages.");
+        if (alive) setLoadErr(err?.message || "could_not_load_analyses");
       } finally {
         if (alive) setLoading(false);
       }
@@ -468,7 +513,6 @@ function ChatWindow({ chat, onBack, socket }) {
           if (text.startsWith("📋 Report submitted:") || text.startsWith("📋 Report updated:")) {
             const cleanText = text.replace(/^📋\s*Report (submitted|updated):\s*\n*/i, "").trim();
             setLiveReportText(cleanText);
-            setChatStatus("locked");
           }
         }
         setMessages((prev) => {
@@ -498,7 +542,7 @@ function ChatWindow({ chat, onBack, socket }) {
     if (!file) return;
     // Limit to 10 MB
     if (file.size > 10 * 1024 * 1024) {
-      setSendErr("File size must be under 10 MB.");
+      setSendErr("file_size_error");
       return;
     }
     setSelectedFile(file);
@@ -537,7 +581,7 @@ function ChatWindow({ chat, onBack, socket }) {
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (apiErr) {
-      setSendErr(apiErr?.message || "Message could not be sent.");
+      setSendErr(apiErr?.message || "message_send_failed");
     } finally {
       setSending(false);
     }
@@ -557,18 +601,18 @@ function ChatWindow({ chat, onBack, socket }) {
             <Avatar name={doctorName} size="sm" />
             <div>
               <p className="text-[14px] font-semibold text-slate-900 dark:text-zinc-100">{doctorName}</p>
-              <p className="text-[11px] text-gray-400 dark:text-zinc-400">Dermatologist</p>
+              <p className="text-[11px] text-gray-400 dark:text-zinc-400">{t("dermatologist")}</p>
             </div>
           </button>
           <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-[11px] font-medium text-green-700 dark:bg-green-950/30 dark:text-green-400 dark:border dark:border-green-900/50">
-            <Shield className="size-3" /> Secure
+            <Shield className="size-3" /> {t("secure")}
           </span>
         </div>
 
         {/* Encryption notice */}
         <div className="flex items-center justify-center gap-2 border-b border-blue-100 bg-blue-50 px-4 py-2 text-[11px] text-gray-500 dark:bg-zinc-950/40 dark:border-zinc-800/80 dark:text-zinc-400">
           <Lock className="size-3 text-blue-500" />
-          End-to-end encrypted
+          {t("encrypted")}
         </div>
 
         {/* Messages */}
@@ -579,11 +623,11 @@ function ChatWindow({ chat, onBack, socket }) {
             </div>
           )}
           {loadErr && !loading && (
-            <p className="text-center text-[12px] text-red-500">{loadErr}</p>
+            <p className="text-center text-[12px] text-red-500">{t(loadErr)}</p>
           )}
           {!loading && !loadErr && messages.length === 0 && (
             <p className="text-center text-[12px] text-gray-400 pt-10">
-              No messages yet. Say hello to your doctor!
+              {t("no_messages_yet")}
             </p>
           )}
           <div className="space-y-4">
@@ -622,27 +666,27 @@ function ChatWindow({ chat, onBack, socket }) {
                     <div className="mb-4 flex items-center gap-2 pb-3 border-b border-blue-100 dark:border-zinc-800">
                       <FileText className="size-5 text-blue-600 dark:text-blue-400" />
                       <div>
-                        <h3 className="text-[14px] font-semibold text-slate-900 dark:text-white">Clinical Summary</h3>
-                        <p className="text-[10px] text-gray-500 dark:text-zinc-400">System-generated AI Analysis</p>
+                        <h3 className="text-[14px] font-semibold text-slate-900 dark:text-white">{t("clinical_summary")}</h3>
+                        <p className="text-[10px] text-gray-500 dark:text-zinc-400">{t("ai_powered")}</p>
                       </div>
                     </div>
 
                     {/* Body Grid */}
                     <div className="grid grid-cols-2 gap-4 text-[12px] leading-relaxed text-slate-700 dark:text-zinc-300">
                       <div>
-                        <p className="text-gray-400 font-medium">Patient</p>
+                        <p className="text-gray-400 font-medium">{t("patient")}</p>
                         <p className="font-semibold text-slate-900 dark:text-white mt-0.5">{summary.patient}</p>
                       </div>
                       <div>
-                        <p className="text-gray-400 font-medium">Analysis Date</p>
+                        <p className="text-gray-400 font-medium">{t("analysis_date")}</p>
                         <p className="font-semibold text-slate-900 dark:text-white mt-0.5">{summary.date}</p>
                       </div>
                       <div>
-                        <p className="text-gray-400 font-medium">AI Prediction</p>
+                        <p className="text-gray-400 font-medium">{t("ai_prediction")}</p>
                         <p className="font-semibold text-blue-600 dark:text-blue-400 mt-0.5">{summary.prediction}</p>
                       </div>
                       <div>
-                        <p className="text-gray-400 font-medium">Confidence</p>
+                        <p className="text-gray-400 font-medium">{t("confidence")}</p>
                         <div className="mt-0.5 flex items-center gap-1.5">
                           <span className="font-semibold text-slate-900 dark:text-white">{summary.confidence}</span>
                           <div className="h-1.5 w-16 bg-gray-100 dark:bg-zinc-800 rounded-full overflow-hidden">
@@ -656,17 +700,17 @@ function ChatWindow({ chat, onBack, socket }) {
                       {(() => {
                         const parsedConf = parseInt(summary.confidence);
                         const confidenceLevel = !isNaN(parsedConf)
-                          ? (parsedConf >= 85 ? "High" : parsedConf >= 60 ? "Medium" : "Low")
+                          ? (parsedConf >= 85 ? "high" : parsedConf >= 60 ? "medium" : "low")
                           : null;
                         if (!confidenceLevel) return null;
                         return (
                           <div className="col-span-2">
-                            <p className="text-gray-400 font-medium mb-1">Confidence Level</p>
-                            <span className={`inline-flex px-2 py-0.5 text-[11px] font-medium border rounded-md uppercase tracking-wider ${confidenceLevel === "High" ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900/50" :
-                                confidenceLevel === "Medium" ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900/50" :
+                            <p className="text-gray-400 font-medium mb-1">{t("confidence_level")}</p>
+                            <span className={`inline-flex px-2 py-0.5 text-[11px] font-medium border rounded-md uppercase tracking-wider ${confidenceLevel === "high" ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900/50" :
+                                confidenceLevel === "medium" ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900/50" :
                                   "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-900/50"
                               }`}>
-                              {confidenceLevel} Confidence
+                              {t(confidenceLevel + "_confidence")}
                             </span>
                           </div>
                         );
@@ -683,7 +727,7 @@ function ChatWindow({ chat, onBack, socket }) {
                           className="inline-flex w-full items-center justify-center gap-2 h-9 rounded-md bg-[#050316] text-[12px] font-medium text-white hover:bg-opacity-90 transition dark:bg-blue-600 dark:hover:bg-blue-500"
                         >
                           <FileText className="size-4" />
-                          View Skin Scan
+                          {t("view_skin_scan")}
                         </a>
                       </div>
                     )}
@@ -709,10 +753,16 @@ function ChatWindow({ chat, onBack, socket }) {
         {isLocked ? (
           <div className="border-t border-gray-200 bg-gray-50 px-5 py-4 text-center text-[12px] text-gray-500 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400 flex items-center justify-center gap-2">
             <Lock className="size-4 text-gray-400" />
-            <span>Chat is locked. Book a new appointment with this doctor to reopen.</span>
+            <span>{t("chat_locked_new_appt")}</span>
           </div>
         ) : (
           <>
+            {!isLocked && secondsLeft !== null && secondsLeft > 0 && !isFutureAppt && (
+              <div className="flex items-center justify-center gap-2 border-t border-amber-100 bg-amber-50/70 px-5 py-2 text-[11px] text-amber-800 dark:bg-amber-950/30 dark:border-amber-900/50 dark:text-amber-400">
+                <span className="inline-block size-2 rounded-full bg-amber-500 animate-pulse" />
+                <span>{t("chat_closes_in")} <strong>{formatCountdown(secondsLeft)}</strong>.</span>
+              </div>
+            )}
             {/* File preview strip */}
             {selectedFile && (
               <div className="flex items-center gap-2 border-t border-gray-100 bg-blue-50/60 px-5 py-2 dark:bg-[#1F2937]/50 dark:border-[#374151]">
@@ -753,7 +803,7 @@ function ChatWindow({ chat, onBack, socket }) {
                   <input
                     value={draft}
                     onChange={(e) => { setDraft(sanitizeText(e.target.value, 500)); setSendErr(""); }}
-                    placeholder="Type a message…"
+                    placeholder={t("type_message")}
                     maxLength={500}
                     className="min-w-0 flex-1 bg-transparent text-[13px] text-slate-700 outline-none placeholder:text-gray-400 dark:text-[#F9FAFB]"
                   />
@@ -776,9 +826,9 @@ function ChatWindow({ chat, onBack, socket }) {
                     : <Send className="size-4" />}
                 </button>
               </div>
-              {sendErr && <p className="mt-2 text-[11px] text-red-500 dark:text-red-500!">{sendErr}</p>}
+              {sendErr && <p className="mt-2 text-[11px] text-red-500 dark:text-red-500!">{t(sendErr)}</p>}
               <p className="mt-2 text-center text-[10px] uppercase text-gray-400">
-                Messages are monitored for quality assurance
+                {t("chatbot_warning")}
               </p>
             </form>
           </>
@@ -791,7 +841,7 @@ function ChatWindow({ chat, onBack, socket }) {
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <FileText className="size-4 text-green-700 dark:text-green-400" />
-              <span className="text-[13px] font-medium text-green-900 dark:text-green-300">Report Submitted</span>
+              <span className="text-[13px] font-medium text-green-900 dark:text-green-300">{t("report_submitted")}</span>
             </div>
             <button
               type="button"
@@ -806,7 +856,7 @@ function ChatWindow({ chat, onBack, socket }) {
               }}
               className="inline-flex h-8 items-center gap-1.5 rounded-md border border-green-300 bg-white px-3 text-[12px] text-green-800 hover:bg-green-100 dark:border-green-900/50 dark:bg-green-950/30 dark:text-green-400 dark:hover:bg-green-900/50"
             >
-              <FileText className="size-3.5" /> Download Report
+              <FileText className="size-3.5" /> {t("download_report")}
             </button>
           </div>
           <p className="line-clamp-3 text-[12px] leading-relaxed text-green-800 dark:text-zinc-300">{liveReportText}</p>
@@ -818,6 +868,7 @@ function ChatWindow({ chat, onBack, socket }) {
 
 // ── Main ChatTab component ────────────────────────────────────
 export default function ChatTab({ socket, totalUnread, setTotalUnread, onActiveChatChange }) {
+  const { t } = useTranslation();
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -948,9 +999,9 @@ export default function ChatTab({ socket, totalUnread, setTotalUnread, onActiveC
       {/* Header */}
       <div className="mb-5 flex items-center justify-between">
         <div>
-          <h2 className="text-[15px] font-medium text-slate-900">My Conversations</h2>
+          <h2 className="text-[15px] font-medium text-slate-900">{t("my_conversations")}</h2>
           <p className="mt-0.5 text-[12px] text-gray-500">
-            Chat with your doctors securely
+            {t("chat_securely_desc")}
           </p>
         </div>
         <button
@@ -958,7 +1009,7 @@ export default function ChatTab({ socket, totalUnread, setTotalUnread, onActiveC
           onClick={loadChats}
           className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-slate-600 hover:bg-gray-50 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800"
         >
-          <RefreshCcw className="size-3.5" /> Refresh
+          <RefreshCcw className="size-3.5" /> {t("refresh")}
         </button>
       </div>
 

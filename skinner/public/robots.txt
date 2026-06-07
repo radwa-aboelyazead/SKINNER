@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Allow: /features
+Allow: /contact-us
+Disallow: /patient-portal/
+Disallow: /doctor-portal/
+Disallow: /admin-portal/
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-code
+
+Sitemap: https://www.skinnerai.site/sitemap.xml

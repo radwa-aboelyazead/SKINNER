@@ -365,6 +365,27 @@
   color: #9ca3af !important;
 }
 
+/* Ensure input-otp hidden input remains hidden and transparent in dark mode */
+.dark .cn-input-otp input {
+  background-color: transparent !important;
+  border-style: none !important;
+  border-width: 0 !important;
+  box-shadow: none !important;
+  color: transparent !important;
+  opacity: 0 !important;
+}
+
+/* Style input-otp slots beautifully in dark mode */
+.dark .cn-input-otp [data-slot="input-otp-slot"] {
+  border-color: #374151 !important;
+  background-color: #1f2937 !important;
+  color: #f9fafb !important;
+}
+.dark .cn-input-otp [data-slot="input-otp-slot"][data-active="true"] {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+}
+
 .dark input:focus,
 .dark select:focus,
 .dark textarea:focus,

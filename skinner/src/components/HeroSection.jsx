@@ -1,16 +1,19 @@
+import { useTranslation } from "../context/LanguageContext";
+
 export default function HeroSection() {
+  const { t } = useTranslation();
+
   return (
-    <section className="relative w-full bg-[linear-gradient(135deg,#DBE7FE_0%,#F1E8FF_100%)] dark:bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.15),transparent_50%)] pt-16 pb-32 px-6 overflow-hidden dark:border-b dark:border-zinc-800">
+    <div className="relative w-full bg-[linear-gradient(135deg,#DBE7FE_0%,#F1E8FF_100%)] dark:bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.15),#131c31)] pt-16 pb-32 px-6 overflow-hidden">
       <div className="mx-auto max-w-4xl text-center">
         <h1 className="text-3xl md:text-5xl font-bold text-blue-600 dark:text-blue-400 mb-6">
-          Skin Disease Detection System
+          {t("hero_title")}
         </h1>
         <p className="text-base md:text-lg text-gray-700 dark:text-zinc-300 max-w-2xl mx-auto leading-relaxed">
-          Advanced AI-powered skin disease identification platform connecting
-          patients with verified healthcare professionals
+          {t("hero_subtitle")}
         </p>
       </div>
-
+ 
       {/* Wave divider at the bottom */}
       <div className="absolute bottom-0 left-0 right-0 leading-none">
         <svg
@@ -25,7 +28,7 @@ export default function HeroSection() {
           />
         </svg>
       </div>
-    </section>
+    </div>
   );
 }
 

@@ -1,12 +1,14 @@
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "../context/LanguageContext";
 
 export default function CTASection() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const benefits = [
-    "Access AI-analyzed patient cases",
-    "Streamlined patient management",
-    "Expand your practice reach",
+    t("benefit_1"),
+    t("benefit_2"),
+    t("benefit_3"),
   ];
 
   return (
@@ -15,11 +17,11 @@ export default function CTASection() {
         <div className="rounded-2xl bg-[linear-gradient(90deg,#155DFC_0%,#9810FA_100%)] text-white shadow-lg p-8 md:p-12">
           <div className="text-center">
             <h2 className="text-2xl md:text-3xl font-semibold mb-3">
-              For Healthcare Professionals
+              {t("for_professionals")}
             </h2>
-            <p className="text-sm md:text-base text-white/90 mb-8">
-              Join our network of verified doctors and help patients get the care they need
-            </p>
+            <div className="text-sm md:text-base text-white/90 mb-8">
+              {t("professionals_desc")}
+            </div>
 
             {/* Benefits list */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 mb-8">
@@ -39,7 +41,7 @@ export default function CTASection() {
                       />
                     </svg>
                   </div>
-                  <span className="text-sm">{benefit}</span>
+                  <div className="text-sm">{benefit}</div>
                 </div>
               ))}
             </div>
@@ -47,9 +49,9 @@ export default function CTASection() {
             {/* Start Now Button */}
             <button
               onClick={() => navigate("/register")}
-              className="rounded-md bg-white text-blue-600 font-semibold px-8 py-2.5 text-sm hover:bg-gray-100 transition cursor-pointer"
+              className="rounded-md bg-[#ffffff] text-[#155DFC] hover:bg-[#f3f4f6] font-semibold px-8 py-2.5 text-sm transition cursor-pointer border border-[#ffffff]"
             >
-              Start Now
+              {t("start_now")}
             </button>
           </div>
         </div>
